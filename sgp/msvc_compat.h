@@ -32,6 +32,27 @@ typedef unsigned int   DWORD;
 typedef unsigned char  BYTE;
 typedef char           CHAR;
 typedef unsigned char  UCHAR;
+typedef void*          HANDLE;
+typedef void*          LPVOID;
+typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
+
+// Win32 string conversion constants and functions, stubbed for
+// non-Windows. These code paths need real cross-platform replacements
+// (e.g. std::codecvt or iconv) in a later phase; the stubs let the
+// code compile so we can find and fix call sites incrementally.
+#ifndef CP_ACP
+#define CP_ACP   0
+#endif
+#ifndef CP_UTF8
+#define CP_UTF8  65001
+#endif
+
+#ifdef __cplusplus
+inline int MultiByteToWideChar(UINT, DWORD, const char*, int,
+                               wchar_t*, int) { return 0; }
+inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
+                               char*, int, const char*, BOOL*) { return 0; }
+#endif
 
 #ifndef __min
 #define __min(a, b) (((a) < (b)) ? (a) : (b))
