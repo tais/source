@@ -37,14 +37,14 @@ public:
 	popupDef();
 	~popupDef();
 
-	BOOL applyToBox(POPUP* popup);
+	BOOLEAN applyToBox(POPUP* popup);
 
-	BOOL addOption(std::wstring* name, UINT16 callbackId, UINT16 availId);
+	BOOLEAN addOption(std::wstring* name, UINT16 callbackId, UINT16 availId);
 
 	popupDef * addSubPopup(std::wstring* name);
-	BOOL addSubPopup(popupDefSubPopupOption* sub);
+	BOOLEAN addSubPopup(popupDefSubPopupOption* sub);
 
-	BOOL addGenerator(UINT16 id);
+	BOOLEAN addGenerator(UINT16 id);
 protected:
 	std::vector<popupDefContent*> content;
 };
@@ -54,7 +54,7 @@ public:
 	popupDefContent();
 	~popupDefContent();
 	
-	virtual BOOL addToBox(POPUP * popup) = 0;
+	virtual BOOLEAN addToBox(POPUP * popup) = 0;
 
 };
 
@@ -65,7 +65,7 @@ public:
 
 	~popupDefOption(){ delete this->name; };
 
-	BOOL addToBox(POPUP * popup);
+	BOOLEAN addToBox(POPUP * popup);
 
 protected:
 	std::wstring* name;
@@ -81,7 +81,7 @@ public:
 
 	~popupDefSubPopupOption(){ delete this->name; delete this->content; };
 
-	BOOL addToBox(POPUP * popup);
+	BOOLEAN addToBox(POPUP * popup);
 	void rename( std::wstring* name ){
 		delete this->name;	// lets just hope nothing else was using this string. TODO: use smart pointer
 		this->name = name;
@@ -100,7 +100,7 @@ public:
 
 	~popupDefContentGenerator();
 
-	BOOL addToBox(POPUP * popup);
+	BOOLEAN addToBox(POPUP * popup);
 
 protected:	
 	UINT16 generatorId;

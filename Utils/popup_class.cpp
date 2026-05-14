@@ -341,7 +341,7 @@ static void unShadeOpenSubPopup( POPUP_SUB_POPUP_OPTION * opt ){
 
 void POPUP_SUB_POPUP_OPTION::initSubPopup()
 {
-	this->subPopup = new POPUP( (CHAR*) std::wstring(this->name).c_str() );
+	this->subPopup = new POPUP( (CHAR8*) std::wstring(this->name).c_str() );
 	this->subPopup->setCallback(POPUP_CALLBACK_SHOW,new popupCallbackFunction<void,POPUP_SUB_POPUP_OPTION*>( &shadeOpenSubPopup, this ));
 	this->subPopup->setCallback(POPUP_CALLBACK_HIDE,new popupCallbackFunction<void,POPUP_SUB_POPUP_OPTION*>( &unShadeOpenSubPopup, this ));
 
@@ -380,7 +380,7 @@ POPUP::POPUP(void)
 }
 
 
-POPUP::POPUP(CHAR* name)
+POPUP::POPUP(CHAR8* name)
 {
 	strcpy((char*) this->name, (char*) name);
 	this->optionCount = 0;
@@ -617,7 +617,7 @@ POPUP * POPUP::addSubMenuOption(std::wstring * name)
 		return NULL;
 }
 
-BOOL POPUP::addSubMenuOption( POPUP_SUB_POPUP_OPTION* sub )
+BOOLEAN POPUP::addSubMenuOption( POPUP_SUB_POPUP_OPTION* sub )
 {
 	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS)
 	{
