@@ -1,4 +1,7 @@
 #include "connect.h"
+#ifndef _WIN32
+#include <dirent.h>
+#endif
 	#include "Items.h"
 	#include "Action Items.h"
 	#include "handle Items.h"
@@ -5054,7 +5057,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 //			}
 
 			// Now intiate conv
-			InitiateConversation( pTSoldier, pSoldier, APPROACH_GIVINGITEM, (INT32)&gTempObject );
+			InitiateConversation( pTSoldier, pSoldier, APPROACH_GIVINGITEM, (UINT32)(uintptr_t)&gTempObject );
 		}
 	}
 
@@ -9632,12 +9635,12 @@ std::vector<GEAR_NODE> LoadEquipmentTemplate( std::string aName )
 			GEAR_NODE node;
 
 			int num;
-			if ( iss >> num && iss >> (UINT16)node.item )
+			if ( iss >> num && iss >> node.item )
 			{
 				node.slot = num;
 
 				// additional data is optional
-				if ( iss >> (UINT16)node.ammoitem )
+				if ( iss >> node.ammoitem )
 				{
 					while ( iss >> num )
 					{
@@ -9723,10 +9726,11 @@ void WriteEquipmentTemplate(SOLDIERTYPE* pSoldier, STR16 name)
 std::vector<std::string> get_all_files_names_within_folder(std::string folder)
 {
 	std::vector<std::string> names;
+#ifdef _WIN32
 	std::string search_path = folder + "/*.*";
 	WIN32_FIND_DATA fd;
 	HANDLE hFind = ::FindFirstFile(search_path.c_str(), &fd);
-	
+
 	if (hFind != INVALID_HANDLE_VALUE)
 	{
 		do
@@ -9742,6 +9746,16 @@ std::vector<std::string> get_all_files_names_within_folder(std::string folder)
 
 		::FindClose(hFind);
 	}
+#else
+	if (DIR* dir = ::opendir(folder.c_str()))
+	{
+		while (struct dirent* ent = ::readdir(dir))
+		{
+			if (ent->d_type != DT_DIR) names.push_back(ent->d_name);
+		}
+		::closedir(dir);
+	}
+#endif
 	return names;
 }
 
