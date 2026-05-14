@@ -28,6 +28,13 @@ endif()
 
 if(MSVC)
   add_compile_options("/wd4838") # silence implicit narrowing conversion warnings
+else()
+  # Demote clang strictness that the JA2 codebase massively trips:
+  # - address-of-temporary: many sites pass &std::wstring(...) to APIs
+  #   that copy out of the pointee before the temp dies. Safe in
+  #   practice; pervasive in the popup / menu code. To-be-cleaned-up
+  #   when those APIs migrate to const& / by-value.
+  add_compile_options(-Wno-error=address-of-temporary)
 endif()
 
 # whether we are using MSBuild as a generator

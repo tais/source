@@ -29,8 +29,10 @@
 	public:
 		popupCallbackFunction3(void);
 		popupCallbackFunction3(void * newFun, P1 param, P2 param2, P3 param3);
+		popupCallbackFunction3(R (*newFun)(P1,P2,P3), P1 param, P2 param2, P3 param3)
+			: fun(newFun), param_1(param), param_2(param2), param_3(param3) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename R,typename P1,typename P2,typename P3>
@@ -71,8 +73,10 @@
 	public:
 		popupCallbackFunction3(void);
 		popupCallbackFunction3(void * newFun, P1 param, P2 param2, P3 param3);
+		popupCallbackFunction3(void (*newFun)(P1,P2,P3), P1 param, P2 param2, P3 param3)
+			: fun(newFun), param_1(param), param_2(param2), param_3(param3) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename P1,typename P2,typename P3>
@@ -113,8 +117,10 @@
 	public:
 		popupCallbackFunction2(void);
 		popupCallbackFunction2(void * newFun, P1 param, P2 param2);
+		popupCallbackFunction2(R (*newFun)(P1,P2), P1 param, P2 param2)
+			: fun(newFun), param_1(param), param_2(param2) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename R,typename P1,typename P2>
@@ -152,8 +158,10 @@
 	public:
 		popupCallbackFunction2(void);
 		popupCallbackFunction2(void * newFun, P1 param, P2 param2);
+		popupCallbackFunction2(void (*newFun)(P1,P2), P1 param, P2 param2)
+			: fun(newFun), param_1(param), param_2(param2) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename P1,typename P2>
@@ -191,8 +199,16 @@
 	public:
 		popupCallbackFunction(void);
 		popupCallbackFunction(void * newFun, P1 param);
+		popupCallbackFunction(R (*newFun)(P1), P1 param)
+			: fun(newFun), param_1(param) {}
+		// Accept any function pointer whose argument can be converted
+		// to P1; covers callbacks declared with BOOLEAN return where
+		// the template is instantiated with bool, etc.
+		template<typename Fn>
+		popupCallbackFunction(Fn newFun, P1 param)
+			: fun(reinterpret_cast<R(*)(P1)>(newFun)), param_1(param) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename R,typename P1>
@@ -226,8 +242,10 @@
 	public:
 		popupCallbackFunction(void);
 		popupCallbackFunction(void * newFun, P1 param);
+		popupCallbackFunction(void (*newFun)(P1), P1 param)
+			: fun(newFun), param_1(param) {}
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename P1>
@@ -266,8 +284,9 @@
 	public:
 		popupCallbackFunction(void);
 		popupCallbackFunction(void * newFun);
+		popupCallbackFunction(R (*newFun)(void)) { this->fun = newFun; }
 		virtual void bind(void * newFun);
-		virtual bool call(void);	
+		virtual bool call(void);
 	};
 
 	template<typename R>
@@ -308,6 +327,7 @@
 		popupCallbackFunction(void * newFun){
 			this->fun = reinterpret_cast< void(*)(void)>(newFun);
 		};
+		popupCallbackFunction(void (*newFun)(void)) { this->fun = newFun; }
 		virtual void bind(void * newFun){
 			this->fun = reinterpret_cast< void(*)(void)>(newFun);
 		};

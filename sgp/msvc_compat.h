@@ -40,6 +40,7 @@ typedef wchar_t*       LPWSTR;
 typedef const wchar_t* LPCWSTR;
 typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
 typedef struct { LONG left, top, right, bottom; } RECT;
+typedef struct { WORD wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
 
 // Win32 string conversion constants and functions, stubbed for
 // non-Windows. These code paths need real cross-platform replacements

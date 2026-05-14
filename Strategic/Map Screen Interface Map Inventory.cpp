@@ -5031,13 +5031,13 @@ void SortSectorInventoryEmptyLBE() {
 						int dropCnt = 0;
 
 						for (auto lbeInvIter = lbePtr->inv.begin(); lbeInvIter != lbePtr->inv.end(); lbeInvIter++) {
-							OBJECTTYPE * LBEStack = lbeInvIter._Ptr;
+							OBJECTTYPE * LBEStack = &*lbeInvIter;
 							dropCnt += LBEStack->ubNumberOfObjects;
 
 							AutoPlaceObjectToWorld(pSoldier, LBEStack, TRUE);
 							if (LBEStack != NULL)
 							{
-								DeleteObj(lbeInvIter._Ptr);
+								DeleteObj(&*lbeInvIter);
 							}
 						}
 
