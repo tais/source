@@ -33,6 +33,7 @@ typedef unsigned short USHORT;
 typedef unsigned int   DWORD;
 typedef unsigned char  BYTE;
 typedef char           CHAR;
+typedef wchar_t        WCHAR;
 typedef unsigned char  UCHAR;
 typedef void*          HANDLE;
 typedef void*          LPVOID;

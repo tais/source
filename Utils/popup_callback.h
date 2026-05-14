@@ -244,6 +244,9 @@
 		popupCallbackFunction(void * newFun, P1 param);
 		popupCallbackFunction(void (*newFun)(P1), P1 param)
 			: fun(newFun), param_1(param) {}
+		template<typename Fn>
+		popupCallbackFunction(Fn newFun, P1 param)
+			: fun(reinterpret_cast<void(*)(P1)>(newFun)), param_1(param) {}
 		virtual void bind(void * newFun);
 		virtual bool call(void);
 	};
