@@ -330,7 +330,7 @@ void RemoveCoverObjectFromWorld( INT32 sGridNo, UINT16 usGraphic, BOOLEAN fRoof 
 }
 
 
-static BOOLEAN HasAdjTile(const INT32 startIndex, const bool onRoof)
+BOOLEAN HasAdjTile(const INT32 startIndex, const bool onRoof)
 {
 	const auto rowLength = 1 + gsMaxCellX - gsMinCellX;
 
@@ -354,7 +354,7 @@ static BOOLEAN HasAdjTile(const INT32 startIndex, const bool onRoof)
 	return FALSE;
 }
 
-static void AddCoverObjectsToViewArea()
+void AddCoverObjectsToViewArea()
 {
 	BOOLEAN fChanged = FALSE;
 	const BOOLEAN fNightTime = NightTime();
@@ -382,7 +382,7 @@ static void AddCoverObjectsToViewArea()
 	}
 }
 
-static void RemoveCoverObjectsFromViewArea()
+void RemoveCoverObjectsFromViewArea()
 {
 	if ( gubDrawMode == DRAW_MODE_OFF && gNoRedraw )
 		return;
@@ -549,7 +549,7 @@ void DisplayCover( BOOLEAN forceUpdate )
 }
 
 
-static void CalculateCoverFromEnemies()
+void CalculateCoverFromEnemies()
 {
 	if ( gusSelectedSoldier == NOBODY || gusSelectedSoldier->bActive == false )
 		return;
@@ -727,7 +727,7 @@ void CalculateCoverFromSoldier( SOLDIERTYPE* pFromSoldier, const INT32& sTargetG
 	}
 }
 
-static void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
+void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
 {
 	// Had to extract this from SOLDIERTYPE::GetMaxDistanceVisible() function due to performance improvement from minimizing recalculating CoweringShockLevel(pSoldier) & GetPercentTunnelVision(pSoldier)
 	const UINT16 usSightLimit = DistanceVisible(pFromSoldier, (SoldierHasLimitedVision(pFromSoldier) ? pFromSoldier->pathing.bDesiredDirection : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
@@ -822,65 +822,65 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 			swprintf(zOutputString, L"");
 			if (zGivenTileProperties.bWoodCamoAffinity > 0)
 			{
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__WOOD]);
-				swprintf(zOutputString + wcslen(zOutputString), L": %d/100", zGivenTileProperties.bWoodCamoAffinity);
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__WOOD]);
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d/100", zGivenTileProperties.bWoodCamoAffinity);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bDesertCamoAffinity > 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__DESERT]);
-				swprintf(zOutputString + wcslen(zOutputString), L": %d/100", zGivenTileProperties.bDesertCamoAffinity);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__DESERT]);
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d/100", zGivenTileProperties.bDesertCamoAffinity);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bUrbanCamoAffinity > 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__URBAN]);
-				swprintf(zOutputString + wcslen(zOutputString), L": %d/100", zGivenTileProperties.bUrbanCamoAffinity);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__URBAN]);
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d/100", zGivenTileProperties.bUrbanCamoAffinity);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bSnowCamoAffinity > 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__SNOW]);
-				swprintf(zOutputString + wcslen(zOutputString), L": %d/100", zGivenTileProperties.bSnowCamoAffinity);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__SNOW]);
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d/100", zGivenTileProperties.bSnowCamoAffinity);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bSoundModifier != 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__DETAILED_SOUND]);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__DETAILED_SOUND]);
 				if (zGivenTileProperties.bSoundModifier > 0)
-					swprintf(zOutputString + wcslen(zOutputString), L": +%d", zGivenTileProperties.bSoundModifier);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": +%d", zGivenTileProperties.bSoundModifier);
 				else
-					swprintf(zOutputString + wcslen(zOutputString), L": %d", zGivenTileProperties.bSoundModifier);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d", zGivenTileProperties.bSoundModifier);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bStealthDifficultyModifer != 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__DETAILED_STEALTH]);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__DETAILED_STEALTH]);
 				if (zGivenTileProperties.bStealthDifficultyModifer > 0)
-					swprintf(zOutputString + wcslen(zOutputString), L": +%d/100", zGivenTileProperties.bStealthDifficultyModifer);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": +%d/100", zGivenTileProperties.bStealthDifficultyModifer);
 				else
-					swprintf(zOutputString + wcslen(zOutputString), L": %d/100", zGivenTileProperties.bStealthDifficultyModifer);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d/100", zGivenTileProperties.bStealthDifficultyModifer);
 				ubApplicableProperties++;
 			}
 			if (zGivenTileProperties.bTrapBonus != 0)
 			{
 				if (ubApplicableProperties)
-					swprintf(zOutputString + wcslen(zOutputString), L", ");
-				swprintf(zOutputString + wcslen(zOutputString), gzDisplayCoverText[DC_TTI__DETAILED_TRAP_LEVEL]);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L", ");
+				sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),gzDisplayCoverText[DC_TTI__DETAILED_TRAP_LEVEL]);
 				if (zGivenTileProperties.bTrapBonus > 0)
-					swprintf(zOutputString + wcslen(zOutputString), L": +%d", zGivenTileProperties.bTrapBonus);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": +%d", zGivenTileProperties.bTrapBonus);
 				else
-					swprintf(zOutputString + wcslen(zOutputString), L": %d", zGivenTileProperties.bTrapBonus);
+					sgp_swprintf(zOutputString + wcslen(zOutputString), 512 - wcslen(zOutputString),L": %d", zGivenTileProperties.bTrapBonus);
 				ubApplicableProperties++;
 			}
 			if (wcslen(zOutputString) > 0)

@@ -53,6 +53,15 @@ inline int MultiByteToWideChar(UINT, DWORD, const char*, int,
                                wchar_t*, int) { return 0; }
 inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
                                char*, int, const char*, BOOL*) { return 0; }
+
+// Monotonic milliseconds counter. Win32 GetTickCount returns msecs
+// since boot; the standard-library steady_clock has an unspecified
+// origin which is fine for the relative-interval use cases in JA2.
+#include <chrono>
+inline DWORD GetTickCount() {
+    auto t = std::chrono::steady_clock::now().time_since_epoch();
+    return (DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
+}
 #endif
 
 #ifndef _countof
@@ -78,6 +87,7 @@ inline int WideCharToMultiByte(UINT, DWORD, const wchar_t*, int,
 #define _stricmp   strcasecmp
 #define _strnicmp  strncasecmp
 #define _wcsicmp   wcscasecmp
+#define sprintf_s  snprintf
 
 #ifndef MAXUINT8
 #define MAXUINT8  ((uint8_t)0xff)

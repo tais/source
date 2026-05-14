@@ -1,7 +1,7 @@
 #ifndef _CINEMATICS_BINK__H_
 #define _CINEMATICS_BINK__H_
 
-
+#ifdef _WIN32
 #include "bink.h"
 
 
@@ -45,5 +45,6 @@ void			BinkCloseFlic(BINKFLIC *pBink);
 void			BinkShutdownVideo(void);
 BINKFLIC		*BinkPlayFlic(const CHAR8 *cFilename, UINT32 uiLeft, UINT32 uiTop, UINT32 uiFlags );
 
+#endif // _WIN32
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef _CINEMATICS_H_
 #define _CINEMATICS_H_
 
+#ifdef _WIN32
 #include "SMACK.H"
 
 struct SMKFLIC
@@ -29,6 +30,7 @@ SMKFLIC			*SmkOpenFlic(const CHAR8 *cFilename);
 void			SmkSetBlitPosition(SMKFLIC *pSmack, UINT32 uiLeft, UINT32 uiTop);
 void			SmkCloseFlic(SMKFLIC *pSmack);
 SMKFLIC			*SmkGetFreeFlic(void);
+#endif // _WIN32
 
 /*
 //--------------------------------------------------------------------------
