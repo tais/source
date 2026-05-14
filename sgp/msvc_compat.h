@@ -12,9 +12,14 @@
 
 #ifndef _WIN32
 
+#include <climits>    // PATH_MAX
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
+
+#ifndef MAX_PATH
+#define MAX_PATH PATH_MAX
+#endif
 
 // Win32 unsized typedefs that JA2 source uses without including
 // windows.h (relying on transitive includes that we're trimming).
@@ -47,6 +52,23 @@ typedef unsigned char  UCHAR;
 #define _stricmp   strcasecmp
 #define _strnicmp  strncasecmp
 #define _wcsicmp   wcscasecmp
+
+// MSVC's legacy swprintf signature is swprintf(buf, fmt, ...). The
+// POSIX/standard signature is swprintf(buf, count, fmt, ...). JA2's
+// 3000+ call sites all pass fixed-size CHAR16 arrays as the buffer,
+// so we route them through a template that recovers the array extent
+// at compile time. Call sites that pass a pointer (instead of an
+// array) fail to compile here intentionally -- the original code in
+// those spots silently writes at most sizeof(ptr)/sizeof(CHAR16)
+// characters and needs an explicit size argument.
+#ifdef __cplusplus
+#include <cstdarg>
+namespace sgp_compat {
+    template<size_t N>
+    constexpr size_t arrsize(const wchar_t (&)[N]) { return N; }
+}
+#define swprintf(buf, ...) ::swprintf((buf), ::sgp_compat::arrsize(buf), __VA_ARGS__)
+#endif
 
 #endif // !_WIN32
 

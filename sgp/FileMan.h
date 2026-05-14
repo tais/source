@@ -22,11 +22,6 @@
 #include "types.h"
 #ifdef _WIN32
 #include "windows.h"
-#else
-#include <climits>
-#ifndef MAX_PATH
-#define MAX_PATH PATH_MAX
-#endif
 #endif
 
 
