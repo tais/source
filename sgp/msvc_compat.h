@@ -34,6 +34,10 @@ typedef char           CHAR;
 typedef unsigned char  UCHAR;
 typedef void*          HANDLE;
 typedef void*          LPVOID;
+typedef char*          LPSTR;
+typedef const char*    LPCSTR;
+typedef wchar_t*       LPWSTR;
+typedef const wchar_t* LPCWSTR;
 typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
 typedef struct { LONG left, top, right, bottom; } RECT;
 
