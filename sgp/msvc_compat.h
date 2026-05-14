@@ -127,6 +127,29 @@ inline wchar_t* _wcslwr(wchar_t* s) {
     for (wchar_t* p = s; *p; ++p) *p = (wchar_t)towlower(*p);
     return s;
 }
+
+// Integer to wide-string conversion. JA2 only uses radix 10/16.
+// Implemented by hand so we don't have to wrestle with the swprintf
+// macro (whose array-deduction template can't accept a pointer here).
+inline wchar_t* _itow_impl(long value, wchar_t* buf, int radix) {
+    if (radix != 10 && radix != 16) radix = 10;
+    wchar_t tmp[34];
+    int idx = 0;
+    bool negative = (radix == 10 && value < 0);
+    unsigned long uv = negative ? (unsigned long)(-(value + 1)) + 1 : (unsigned long)value;
+    if (uv == 0) tmp[idx++] = L'0';
+    while (uv) {
+        int d = uv % (unsigned)radix;
+        tmp[idx++] = (wchar_t)(d < 10 ? (L'0' + d) : (L'a' + d - 10));
+        uv /= (unsigned)radix;
+    }
+    if (negative) tmp[idx++] = L'-';
+    for (int i = 0; i < idx; ++i) buf[i] = tmp[idx - 1 - i];
+    buf[idx] = L'\0';
+    return buf;
+}
+inline wchar_t* _itow(int value, wchar_t* buf, int radix) { return _itow_impl(value, buf, radix); }
+inline wchar_t* _ltow(long value, wchar_t* buf, int radix) { return _itow_impl(value, buf, radix); }
 #endif
 
 // MSVC's legacy swprintf signature is swprintf(buf, fmt, ...). The
@@ -144,6 +167,15 @@ namespace sgp_compat {
     constexpr size_t arrsize(const wchar_t (&)[N]) { return N; }
 }
 #define swprintf(buf, ...) ::swprintf((buf), ::sgp_compat::arrsize(buf), __VA_ARGS__)
+
+// vswprintf has the same MSVC 3-arg / POSIX 4-arg split. Solved as a
+// template overload at global scope so call sites with array buffers
+// pick this up automatically. Pointer-buffer sites fail to compile,
+// same as the swprintf macro.
+template<size_t N>
+inline int vswprintf(wchar_t (&buf)[N], const wchar_t* fmt, va_list args) {
+    return ::vswprintf(buf, N, fmt, args);
+}
 #endif
 
 #endif // !_WIN32
