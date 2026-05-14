@@ -14,7 +14,9 @@
 #ifndef __DEBUG_MANAGER_
 #define __DEBUG_MANAGER_
 
+#ifdef _MSC_VER
 #include <crtdbg.h>
+#endif
 
 #include "types.h"
 #include "TopicOps.h"

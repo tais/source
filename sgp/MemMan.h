@@ -67,7 +67,7 @@ extern void		ShutdownMemoryManager( void );
 	extern void		MemFreeXDebug( PTR ptr, const STR8 szCodeString, INT32 iLineNum, void *pSpecial );
 	extern PTR		MemReallocXDebug( PTR ptr, UINT32 size, const STR8 szCodeString, INT32 iLineNum, void *pSpecial );
 #else
-	#ifdef _DEBUG
+	#if defined(_DEBUG) && defined(_MSC_VER)
 		#include <crtdbg.h>
 		//This is another debug feature.	Not as sophistocated, but definately not the pig the extreme system is.
 		//This system reports all memory allocations/deallocations in the debug output.

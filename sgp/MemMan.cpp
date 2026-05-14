@@ -26,7 +26,7 @@
 	#include "DEBUG.H"
 	#include <stdio.h>
 	#include "sgp_logger.h"
-	#ifdef _DEBUG
+	#if defined(_DEBUG) && defined(_MSC_VER)
 		#include <crtdbg.h>
 	#endif
 
@@ -226,7 +226,7 @@ void ShutdownMemoryManager( void )
 }
 
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER)
 
 PTR MemAllocReal( UINT32 uiSize, const STR8 pcFile, INT32 iLine )
 {
@@ -467,7 +467,7 @@ BOOLEAN MemCheckPool( void )
 {
 	BOOLEAN fRet = TRUE;
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER)
 
 	fRet = _CrtCheckMemory();
 	Assert( fRet );
