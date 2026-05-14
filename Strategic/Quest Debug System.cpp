@@ -1685,7 +1685,7 @@ void DisplayFactList()
 			DrawTextToScreen( sTemp, QUEST_DBS_SECOND_COL_TITLE_X, usPosY, QUEST_DBS_SECOND_TITLE_COL_WIDTH, QUEST_DBS_FONT_DYNAMIC_TEXT, QUEST_DBS_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
 		}
 
-		DrawTextToScreen( gubFact[ usLoop1 ] ? L"True" : L"False", QUEST_DBS_SECOND_COL_STATUS_X, usPosY, QUEST_DBS_STATUS_COL_WIDTH, QUEST_DBS_FONT_DYNAMIC_TEXT, QUEST_DBS_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
+		DrawTextToScreen( (STR16)(gubFact[ usLoop1 ] ? L"True" : L"False"), QUEST_DBS_SECOND_COL_STATUS_X, usPosY, QUEST_DBS_STATUS_COL_WIDTH, QUEST_DBS_FONT_DYNAMIC_TEXT, QUEST_DBS_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
 
 		usPosY += usTextHeight;
 		usCount++;
@@ -4067,13 +4067,13 @@ void GetDebugLocationString( UINT16 usProfileID, STR16 pzText )
 	if( pSoldier != NULL && pSoldier->bActive && pSoldier->flags.uiStatusFlags & SOLDIER_OFF_MAP )
 	{
 		//the soldier is on schedule
-		swprintf( pzText, L"On Schdl.");
+		sgp_swprintf( pzText, 64,L"On Schdl.");
 	}
 
 	//if the soldier is dead
 	else if( gMercProfiles[ usProfileID ].bMercStatus == MERC_IS_DEAD )
 	{
-		swprintf( pzText, L"Dead");
+		sgp_swprintf( pzText, 64,L"Dead");
 	}
 
 	//the soldier is in this sector

@@ -79,6 +79,10 @@ inline void Sleep(DWORD ms) {
 // Win32 ZeroMemory is a thin memset wrapper.
 #include <cstring>
 inline void ZeroMemory(void* dst, size_t len) { std::memset(dst, 0, len); }
+
+// MSVC's _abs64 is the standard llabs (absolute value of long long).
+#include <cstdlib>
+inline long long _abs64(long long v) { return llabs(v); }
 #endif
 
 #ifndef _countof

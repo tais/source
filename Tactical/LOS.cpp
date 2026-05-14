@@ -80,32 +80,10 @@ OBJECTTYPE GLOCK_17_ForUseWithLOS;
 
 UINT32 FPMult32(UINT32 uiA, UINT32 uiB)
 {
-	UINT32 uiResult;
-
-	__asm {
-		// Load the 32-bit registers with the two values
-		mov		eax, uiA
-			mov		ebx, uiB
-
-			// Multiply them
-			// Top 32 bits (whole portion) goes into edx
-			// Bottom 32 bits (fractional portion) goes into eax
-			imul	ebx
-
-			// Shift the fractional portion back to (lower) 16 bits
-			shr		eax, 16
-			// Shift the whole portion to 16 bits, in the upper word
-			shl		edx, 16
-
-			// At this point, we have edx xxxx0000 and eax 0000xxxx
-			// Combine the two words into a dword
-			or		eax, edx
-
-			// Put the result into a returnable variable
-			mov		uiResult, eax
-	}
-
-	return(uiResult);
+	// 16.16 fixed-point multiply: result = (A * B) >> 16, keeping
+	// bits 47..16 of the 64-bit product.
+	UINT64 product = (UINT64)uiA * (UINT64)uiB;
+	return (UINT32)(product >> 16);
 }
 
 
