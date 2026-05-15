@@ -45,6 +45,33 @@ typedef const char*    LPCSTR;
 typedef wchar_t*       LPWSTR;
 typedef const wchar_t* LPCWSTR;
 typedef struct { DWORD dwLowDateTime, dwHighDateTime; } FILETIME;
+typedef struct {
+    DWORD dwFileAttributes;
+    FILETIME ftCreationTime, ftLastAccessTime, ftLastWriteTime;
+    DWORD nFileSizeHigh, nFileSizeLow;
+    DWORD dwReserved0, dwReserved1;
+    char cFileName[260];
+    char cAlternateFileName[14];
+} WIN32_FIND_DATA;
+#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
+
+// Win32 file flag constants used by LibraryDataBase.cpp et al.
+typedef DWORD* LPDWORD;
+#ifndef GENERIC_READ
+#define GENERIC_READ              0x80000000L
+#define GENERIC_WRITE             0x40000000L
+#define OPEN_EXISTING             3
+#define CREATE_ALWAYS             2
+#define FILE_FLAG_RANDOM_ACCESS   0x10000000L
+#define FILE_BEGIN                0
+#define FILE_CURRENT              1
+#define FILE_END                  2
+#define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000L
+#define FORMAT_MESSAGE_ALLOCATE_BUFFER 0x00000100L
+#define FORMAT_MESSAGE_IGNORE_INSERTS  0x00000200L
+#define LANG_NEUTRAL              0
+#define SUBLANG_DEFAULT           1
+#endif
 typedef struct { LONG left, top, right, bottom; } RECT;
 typedef struct { BYTE rgbBlue, rgbGreen, rgbRed, rgbReserved; } RGBQUAD;
 typedef struct { WORD wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
@@ -184,6 +211,30 @@ inline LPVOID HeapAlloc(HANDLE, DWORD flags, size_t size) {
     return (flags & HEAP_ZERO_MEMORY) ? std::calloc(1, size) : std::malloc(size);
 }
 inline BOOL HeapFree(HANDLE, DWORD, LPVOID ptr) { std::free(ptr); return 1; }
+
+// Win32 file I/O stubs. The library/SLF loader uses these directly;
+// Phase 2 will rewrite it on top of std::ifstream. The stubs let the
+// translation unit compile (and lets non-SLF code paths run).
+inline HANDLE CreateFileA(const char*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) {
+    return INVALID_HANDLE_VALUE;
+}
+#define CreateFile CreateFileA
+inline BOOL ReadFile(HANDLE, void*, DWORD, LPDWORD bytesRead, void*) {
+    if (bytesRead) *bytesRead = 0;
+    return 0;
+}
+inline BOOL WriteFile(HANDLE, const void*, DWORD, LPDWORD bytesWritten, void*) {
+    if (bytesWritten) *bytesWritten = 0;
+    return 0;
+}
+inline DWORD SetFilePointer(HANDLE, LONG, LONG*, DWORD) {
+    return 0xFFFFFFFFu;
+}
+inline DWORD FormatMessageA(DWORD, const void*, DWORD, DWORD, char* buf, DWORD bufSize, void*) {
+    if (buf && bufSize > 0) buf[0] = '\0';
+    return 0;
+}
+#define FormatMessage FormatMessageA
 
 // Win32 GetPrivateProfileString stub. Returns 0 (no value) and
 // writes the default string into the buffer. Real INI handling is

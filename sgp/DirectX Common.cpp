@@ -1,8 +1,11 @@
 #include "types.h"
+
+#ifdef _WIN32
+// DirectX common helpers -- Win32-only. Phase 5 replaces the whole
+// DirectDraw subsystem with SDL3.
 #include <objbase.h>
 #include <initguid.h>
 
-	#include "types.h"
 	#include <ddraw.h>
 	#include "DirectX Common.h"
 	#include <windows.h>
@@ -235,4 +238,5 @@ STR8 	DirectXErrorDescription ( INT32 iDXReturn )
 		: return "Unrecognized error value.\0";
 	}
 }
+#endif // _WIN32
 

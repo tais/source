@@ -765,7 +765,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
 
 	if((GenericButtonOffNormal[0] = CreateVideoObject(&vo_desc)) == NULL)
 	{
-		DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0, "Couldn't create VOBJECT for "DEFAULT_GENERIC_BUTTON_OFF);
+		DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0, "Couldn't create VOBJECT for " DEFAULT_GENERIC_BUTTON_OFF);
 		return(FALSE);
 	}
 
@@ -774,7 +774,7 @@ BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, IN
 
 	if((GenericButtonOnNormal[0] = CreateVideoObject(&vo_desc)) == NULL)
 	{
-		DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0, "Couldn't create VOBJECT for "DEFAULT_GENERIC_BUTTON_ON);
+		DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0, "Couldn't create VOBJECT for " DEFAULT_GENERIC_BUTTON_ON);
 		return(FALSE);
 	}
 

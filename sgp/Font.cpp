@@ -2,9 +2,10 @@
 	#include "types.h"
 	#include <stdio.h>
 	#include <stdarg.h>
-	#include <malloc.h>
+	#include <stdlib.h>
+#ifdef _WIN32
 	#include <windows.h>
-	#include <stdarg.h>
+#endif
 	#include <wchar.h>
 	#include "sgp.h"
 	#include "pcx.h"
@@ -931,7 +932,7 @@ CHAR16 GetUnicodeChar(CHAR16 siChar)
 			//case 244:          siChar = 244;          break;	//?
 			//case 249:          siChar = 249;          break;	//?
 			//case 251:          siChar = 251;          break;	//?
-			//case 255:          siChar = 255;          break;	//я
+			//case 255:          siChar = 255;          break;	//пїЅ
 //inshy: italian letters
 			//case 204:          siChar = 204;          break;	//I'
 			//case 236:          siChar = 236;          break;	//i'
@@ -1886,7 +1887,7 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 1102; // ?
 	temp++;
-	*temp = 1103; // я
+	*temp = 1103; // пїЅ
 	temp++;
 
 	// BELORUSSIAN and UKRAINIAN letters in UNICODE
@@ -1936,23 +1937,23 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 377; // ?(zet)
 	temp++;
-	*temp = 261; // ?(он)
+	*temp = 261; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 263; // ?(це)
+	*temp = 263; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 281; // ?(эн)
+	*temp = 281; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 322; // ?(эл?
+	*temp = 322; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 324; // ?(эн?
+	*temp = 324; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 243; // ?(?кратко?
+	*temp = 243; // ?(?пїЅпїЅпїЅпїЅпїЅпїЅ?
 	temp++;
-	*temp = 347; // ?(эс?
+	*temp = 347; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 380; // ?(же?
+	*temp = 380; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 378; // ?(зе?
+	*temp = 378; // ?(пїЅпїЅ?
 	temp++;
 
 	// FRENCH and ITALIAN letters in UNICODE
@@ -2007,7 +2008,7 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 251; //?
 	temp++;
-	*temp = 255; //я
+	*temp = 255; //пїЅ
 	temp++;
 //Italian letters
 	*temp = 204; //I'

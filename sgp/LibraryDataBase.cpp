@@ -1,5 +1,7 @@
 	#include "types.h"
+#ifdef _WIN32
 	#include "windows.h"
+#endif
 	#include "FileMan.h"
 	#include "LibraryDataBase.h"
 	#include "MemMan.h"

@@ -1,3 +1,7 @@
+#ifdef _WIN32
+// Entire DirectDraw wrapper is Win32-only. Phase 5 (SDL3 rendering)
+// replaces the whole subsystem; on non-Windows this file is an empty
+// translation unit until then.
 	#include "DirectX Common.h"
 	#include "DirectDraw Calls.h"
 
@@ -533,3 +537,4 @@ HRESULT BltDDSurfaceUsingSoftware( LPDIRECTDRAWSURFACE2 pDestSurface, LPRECT pDe
 
 	return( DD_OK );
 }
+#endif // _WIN32

@@ -51,10 +51,9 @@
 
 #include "debug_util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+// These match the C++-linkage declarations in DEBUG.H. The previous
+// extern "C" wrapper here was inconsistent and clang refuses to mix
+// the two.
 BOOLEAN gfRecordToFile     = FALSE;
 BOOLEAN gfRecordToDebugger = TRUE;
 
@@ -71,10 +70,6 @@ CHAR8 gubAssertString[512];
 #define MAX_MSG_LENGTH2 512
 CHAR8		gbTmpDebugString[8][MAX_MSG_LENGTH2];
 UINT8		gubStringIndex = 0;
-
-#ifdef __cplusplus
-}
-#endif
 
 #ifdef SGP_DEBUG
 
@@ -455,7 +450,11 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 		SaveGame( SAVE__ASSERTION_FAILURE, L"Assertion Failure Auto Save" );
 	}
 
-    MSG Message;
+#ifdef _WIN32
+	// Asserts re-enter the Win32 message pump so the OS stays alive
+	// while the error screen is shown. The SDL3 port will replace this
+	// with SDL_PollEvent in Phase 3.
+	MSG Message;
 	while (gfProgramIsRunning)
 	{
 		if (PeekMessage(&Message, NULL, 0, 0, PM_NOREMOVE))
@@ -466,14 +465,21 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 			}
 			// Ok, now that we have the message, let's handle it
 			TranslateMessage(&Message);
-			DispatchMessage(&Message);      
+			DispatchMessage(&Message);
 		}
 		else
 		{ // Windows hasn't processed any messages, therefore we handle the rest
-			GameLoop();        
-			gfSGPInputReceived  =  FALSE;			
+			GameLoop();
+			gfSGPInputReceived  =  FALSE;
 		}
 	}
+#else
+	while (gfProgramIsRunning)
+	{
+		GameLoop();
+		gfSGPInputReceived = FALSE;
+	}
+#endif
 
 	alreadyInThisFunction = false;
 	exit(0);
@@ -635,7 +641,7 @@ sgp::Exception::Exception(WString const& msg, std::exception& ex SGP_CALLER_LOCA
 
 static std::string gs_exception_string;
 
-const char* sgp::Exception::what() const
+const char* sgp::Exception::what() const throw()
 {
 	// cannot return pointer local variable
 	std::stringstream ss;
