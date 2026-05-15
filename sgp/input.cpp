@@ -107,7 +107,9 @@ void	HandleSingleClicksAndButtonRepeats( void );
 void	AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
-
+// (Win32-only -- Phase 4 SDL3 input migration replaces this entire
+// block with SDL_PollEvent dispatching to the same QueueEvent path.)
+#ifdef _WIN32
 LRESULT CALLBACK KeyboardHandler(int Code, WPARAM wParam, LPARAM lParam)
 {
 	if (Code < 0) // Do not handle this message, pass it on to another window
@@ -227,6 +229,7 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 
 	return TRUE;
 }
+#endif // _WIN32 (Keyboard/Mouse hooks)
 
 
 
@@ -269,8 +272,10 @@ BOOLEAN InitializeInputManager(void)
 
 	InitializeCriticalSection(&gcsInputQueueLock);
 
+#ifdef _WIN32
 	ghMouseHook = SetWindowsHookEx(WH_MOUSE, (HOOKPROC) MouseHandler, (HINSTANCE) 0, GetCurrentThreadId());
 	DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
+#endif
 	return TRUE;
 }
 
@@ -279,9 +284,11 @@ void ShutdownInputManager(void)
 	// There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
+#ifdef _WIN32
 //	UnhookWindowsHookEx(ghKeyboardHook);
 	UnhookWindowsHookEx(ghMouseHook);
-	
+#endif
+
 	DeleteCriticalSection(&gcsInputQueueLock);
 }
 
