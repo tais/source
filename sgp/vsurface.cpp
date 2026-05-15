@@ -1,3 +1,6 @@
+#ifdef _WIN32
+// vsurface is the DirectDraw surface manager. Phase 5 replaces it
+// with SDL3-backed surfaces/textures.
 #include "DirectDraw Calls.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -2800,4 +2803,6 @@ BOOLEAN _AddAndRecordVSurface( VSURFACE_DESC *VSurfaceDesc, UINT32 *uiIndex, UIN
 }
 
 #endif
+
+#endif // _WIN32
 

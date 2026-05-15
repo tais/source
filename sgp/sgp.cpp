@@ -2,6 +2,13 @@
 //its test what doeas it do?
 #include "builddefines.h"
 #include "types.h"
+
+#ifdef _WIN32
+// SGP entry point: WinMain, window class, message pump, the
+// cnc-ddraw detection logic. Phase 3 replaces this with an SDL3
+// SDL_main + SDL_PollEvent loop. On non-Windows we currently produce
+// an empty TU; the project's linker target also needs a portable main
+// stub which Phase 3 adds when SDL3 is wired in.
 #include <windows.h>
 #include <string.h>
 #include "sgp.h"
@@ -1408,3 +1415,4 @@ static bool CallGameLoop(bool wait)
 	return true;
 }
 
+#endif // _WIN32
