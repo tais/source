@@ -6,6 +6,29 @@ rendering pipeline.
 
 This lives on the `sdl3-port` branch. `master` is left untouched.
 
+## Status at a glance
+
+| Phase | Description | State |
+|---|---|---|
+| 0 | Branch + plan doc | ✅ Done |
+| 1 | Build system portability — configures, compiles, and links on macOS | ✅ Done |
+| 2 | Portable file I/O / time / memory / debug | Partial via compat shims; real porting pending |
+| 3 | SDL3 window + event loop, drop WinMain | Not started |
+| 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
+| 5 | SDL3 video (RGB565 transitional), retire DirectDraw | Not started |
+| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | Not started |
+| 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | Not started |
+| 8 | Cinematics — libsmacker, decide on Bink | Not started |
+| 9 | Fonts — stb_truetype, drop GDI | Not started |
+| 10 | Platform packaging + CI | Not started |
+| ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely |
+
+As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
+on macOS. The resulting binary prints a "not yet implemented" notice
+and exits — nothing renders, nothing accepts input, nothing plays
+audio. **Every Win32-gated block in the codebase corresponds to a
+named phase below**; that's the work plan.
+
 ## Goals
 
 - Native builds on Windows, macOS, and Linux (all first-class).
@@ -44,103 +67,477 @@ the implementation behind it is what changes.
 
 ---
 
-## Phase 0 — Branch & baseline
+## How Phase 1 was actually closed
 
-Establish a clean working baseline.
+Phase 1's exit criterion turned out to be more invasive than the
+original plan anticipated. Rather than write SDL3 code in this phase,
+we landed an extensive **gating + compat-stub layer** so the existing
+Win32/DirectDraw/FMOD code is preserved verbatim under `#ifdef _WIN32`
+and non-Windows builds get either:
 
-- This plan doc, committed.
-- Verify the master branch still builds cleanly from this branch's
-  HEAD before any changes (smoke test).
-- CI placeholder if any exists today (TBD).
+- Inline stubs (for typedefs and small helpers) defined in
+  [sgp/msvc_compat.h](../sgp/msvc_compat.h), or
+- No-op function definitions (for whole subsystems like Multiplayer).
 
-Exit criteria: `sdl3-port` builds bit-identically to `master` on
-Windows.
+This means **on Windows nothing changed at runtime**. On non-Windows
+the build compiles and links but most subsystems are non-functional
+until their respective phase replaces the gated blocks with real
+SDL3-backed implementations.
+
+### The compat header — `sgp/msvc_compat.h`
+
+Single biggest piece of new code. Active only on non-Windows. Provides:
+
+- **Win32 unsized typedefs**: `BOOL`, `UINT`, `INT`, `ULONG`, `LONG`,
+  `WORD`, `USHORT`, `DWORD`, `BYTE`, `CHAR`, `WCHAR`, `UCHAR`,
+  `LONGLONG`, `ULONGLONG`, `HANDLE`, `LPVOID`, `LPSTR`, `LPCSTR`,
+  `LPWSTR`, `LPCWSTR`, `LPDWORD`, `VOID`.
+- **Win32 structs**: `FILETIME`, `RECT`, `RGBQUAD`, `SYSTEMTIME`,
+  `WIN32_FIND_DATA`, `LARGE_INTEGER` (union with `QuadPart`),
+  `CRITICAL_SECTION`, `MEMORYSTATUS`, `TIMECAPS`.
+- **`MAX_PATH`** as `PATH_MAX`.
+- **Min/max**: `__min`, `__max`, `min`, `max` macros (POSIX has them
+  but lowercase `min`/`max` conflict with `std::min`/`std::max`; we
+  pick the ternary-macro form for compat with Windows behavior).
+- **String/array**: `_countof`, `_stricmp`/`_strnicmp`/`_wcsicmp`
+  mapped to `strcasecmp`/`strncasecmp`/`wcscasecmp`, `_strupr` /
+  `_strlwr` / `_wcsupr` / `_wcslwr` written as ASCII-range loops,
+  `_itow` / `_ltow` hand-rolled, `_wtoi` as `wcstol`, `wcstok_2arg`
+  shim mapping MSVC's 2-arg form onto POSIX's 3-arg form, `sprintf_s`
+  as `snprintf`, `MAXUINT8/16/32` macros.
+- **swprintf macro** routing through a `sgp_compat::arrsize` template
+  that pulls the array extent at compile time. Pointer-buffer call
+  sites that legitimately need explicit size use **`sgp_swprintf`** —
+  defined at the bottom of the file, available cross-platform.
+- **`vswprintf` template overload** for the same array-extent trick.
+- **Win32 string conversion stubs**: `MultiByteToWideChar` /
+  `WideCharToMultiByte` return 0 (failure). `CP_ACP` / `CP_UTF8`
+  macros. *Phase 5–7 should replace these with `std::codecvt` or
+  `iconv`.*
+- **Time stubs**: `GetTickCount` via `std::chrono::steady_clock`,
+  `Sleep` via `std::this_thread::sleep_for`, `timeBeginPeriod` /
+  `timeEndPeriod` / `timeSetEvent` / `timeKillEvent` as no-ops,
+  `QueryPerformanceFrequency` / `QueryPerformanceCounter` via
+  `std::chrono::steady_clock`, `GetCurrentThreadId` returns 1.
+- **Thread/event stubs (BIG WARNING)**: `CreateThread` returns NULL —
+  the JA2 clock thread and notify thread don't actually run on
+  non-Windows. `CreateEvent` / `SetEvent` / `ResetEvent` /
+  `WaitForSingleObject` / `WaitForMultipleObjects[Ex]` /
+  `CloseHandle` are no-ops returning `WAIT_TIMEOUT`. Critical-section
+  ops are no-ops on a tiny struct.
+- **File I/O stubs (BIG WARNING)**: `CreateFile` returns
+  `INVALID_HANDLE_VALUE`. `ReadFile` / `WriteFile` / `SetFilePointer`
+  / `GetFileSize` / `FormatMessage` are no-ops. **SLF library reading
+  will not work** until Phase 2 ports `LibraryDataBase.cpp` to use
+  `std::ifstream`.
+- **Heap stubs**: `GetProcessHeap` returns sentinel, `HeapAlloc` /
+  `HeapFree` route through `malloc`/`free`, `VirtualAlloc` /
+  `VirtualFree` / `VirtualLock` / `VirtualUnlock` route through
+  `malloc`/`free` (lock semantics dropped).
+- **Error codes**: `ERROR_SUCCESS`, `ERROR_NOT_READY`,
+  `ERROR_INSUFFICIENT_BUFFER`. `GetLastError` returns 0.
+- **`OutputDebugString[A|W]`** emit to `stderr`.
+- **`__debugbreak`** as `__builtin_trap`.
+- **`ZeroMemory`** as `memset(_, 0, _)`.
+- **`_abs64`** as `llabs`.
+- **`GetPrivateProfileString[A]`** stub that writes the supplied
+  default. *Phase 2 should remove this when the legacy INI helpers
+  are dropped.*
+- **`OPEN_EXISTING` / `GENERIC_READ` etc.**: full set of Win32 file
+  flag constants for compile-time use.
+
+When any of these gets a real cross-platform implementation in its
+phase, the compat shim should be deleted to avoid drift.
+
+### Gated subsystems
+
+The big picture: every Win32-specific subsystem now compiles to an
+empty translation unit (or stub) on non-Windows. Listed by which phase
+will revive them:
+
+#### Phase 2 — file I/O / time / memory
+
+- [sgp/FileMan.cpp](../sgp/FileMan.cpp): direct `<io.h>` /
+  `<direct.h>` / `<windows.h>` gated. Uses `WIN32_FIND_DATA`,
+  `CreateFile`, `ReadFile`, `SetFilePointer`, etc. — currently routes
+  through the compat stubs which fail. **Phase 2 rewrites on
+  `std::filesystem` / `<cstdio>`** with case-insensitive resolution
+  for asset paths (mirror Stracciatella's known-good implementation).
+- [sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp): SLF archive
+  reader. Same story — uses Win32 file APIs via the compat stubs.
+  Phase 2 ports to portable streams. The `_splitpath` site has a
+  basename-by-last-slash fallback at line ~984.
+- [sgp/MemMan.cpp](../sgp/MemMan.cpp): `<windows.h>` gated. The
+  `_DEBUG && _MSC_VER` heap-tracking branch falls through to plain
+  malloc on non-MSVC.
+- [sgp/timer.cpp](../sgp/timer.cpp): `Clock` callback and
+  `SetTimer` / `KillTimer` gated. Non-Windows reads `GetTickCount`
+  (compat shim) directly. Phase 2 should provide a proper monotonic
+  timer.
+- [Utils/Timer Control.cpp](../Utils/Timer%20Control.cpp): the
+  JA2 clock thread + notify thread machinery uses Win32 events,
+  mutexes, and `timeSetEvent` callbacks. Currently those are all
+  no-op compat stubs — **the clock thread doesn't tick on non-Windows**,
+  so anything counting on `guiBaseJA2Clock` advancing is broken.
+  Phase 2 rebuilds on `std::thread` + `std::chrono` + `std::mutex` +
+  `std::condition_variable`. SEH `__try`/`__except`/`__finally`
+  blocks gated on `_MSC_VER`.
+- [sgp/Random.cpp](../sgp/Random.cpp): `<windows.h>` and the
+  `GetCursorPos` cursor-position seed contribution are gated.
+- [sgp/DEBUG.cpp](../sgp/DEBUG.cpp): the assertion message pump that
+  pumps `PeekMessage` is gated; non-Windows path just calls
+  `GameLoop` until `gfProgramIsRunning` flips. SEH blocks gated on
+  `_MSC_VER`. The `<crtdbg.h>` include is gated on `_MSC_VER`.
+
+#### Phase 3 — window, event loop, message plumbing
+
+- [sgp/sgp.cpp](../sgp/sgp.cpp): the **entire 1410-line file** is
+  gated behind `_WIN32`. `WinMain`, `WindowProcedure`, the window
+  class registration, the cnc-ddraw detection (`bCncDdraw`), the
+  `iScreenMode` / windowed/fullscreen plumbing, the dll-override-by-
+  Wine helper — all of it. The non-Windows replacement is a stub
+  `main()` at the bottom of the file. **Phase 3 writes a portable
+  `SDL_main` that calls `SDL_CreateWindow`, runs `SDL_PollEvent`
+  fanning into JA2's event queue, and dispatches into the game loop.**
+- [wine/](../wine/): the registry-poking Wine DLL override helper.
+  Already excluded from non-Windows builds by the top-level
+  CMakeLists `if(WIN32)`. Phase 3 deletes the directory once SDL3
+  replaces DirectDraw entirely.
+- [sgp/video.h](../sgp/video.h): `HWND ghWindow` and the
+  `LPDIRECTDRAW2 GetDirectDraw2Object()`-style getters are behind
+  `_WIN32`. Phase 3 introduces a portable accessor for the window
+  handle (likely `SDL_Window*` directly, or an opaque pointer).
+- `MessageBox` / `ShowWindow` / `SetCursor` call sites across the
+  codebase. Phase 3 swaps to `SDL_ShowSimpleMessageBox` /
+  `SDL_HideCursor` / `SDL_SetCursor`.
+
+#### Phase 4 — input
+
+- [sgp/input.cpp](../sgp/input.cpp): `KeyboardHandler` /
+  `MouseHandler` Win32 hook procedures (`LRESULT CALLBACK`),
+  `SetWindowsHookEx` / `UnhookWindowsHookEx`, `CallNextHookEx`,
+  `MOUSEHOOKSTRUCT` consumer, `WM_*` switch — all gated `_WIN32`.
+  `HHOOK` globals gated too. `RestrictMouseCursor` / `FreeMouseCursor`
+  / `RestoreCursorClipRect` / `GetRestrictedClipCursor` /
+  `SimulateMouseMovement` cursor-clipping gated. `DequeueAllKeyBoardEvents`
+  `PeekMessage` pump gated. SEH `__try`/`__except`/`__finally` blocks
+  gated on `_MSC_VER`. `GetCursorPos` mouse-poll sites all replaced
+  with `gusMouseXPos` / `gusMouseYPos` fallback on non-Windows.
+- [Utils/KeyMap.cpp](../Utils/KeyMap.cpp): the entire VK_* virtual-
+  key-code translation table (160 constants) is gated `_WIN32`.
+  **Phase 4 must rebuild this on `SDL_Scancode` while preserving the
+  numeric VK_* values for save-game compatibility** (those values are
+  persisted in savegames and config files).
+- [Utils/Text Input.cpp](../Utils/Text%20Input.cpp): `PasteClipboardText`
+  / `CopyToClipboard` (Win32 clipboard) gated; non-Windows stubs
+  return 0 / no-op. Phase 4 wires them to `SDL_GetClipboardText` /
+  `SDL_SetClipboardText`.
+- 12+ `GetCursorPos` / `ScreenToClient` sites in screen-handler
+  files (Ja2/FeaturesScreen, Ja2/gameloop, Laptop/BriefingRoom*,
+  Laptop/laptop, Laptop/personnel, Laptop/MPChatScreen,
+  Strategic/Map Screen Interface Bottom, Tactical/Turn Based Input,
+  TileEngine/Tactical Placement GUI, Ja2/HelpScreen) all gated
+  `_WIN32` with `gusMouseXPos` / `gusMouseYPos` fallback.
+
+#### Phase 5 — video (DirectDraw → SDL3, keep RGB565 internally first)
+
+- [sgp/video.cpp](../sgp/video.cpp): entire 3317-line file gated
+  `_WIN32`. The whole DirectDraw video subsystem.
+- [sgp/vsurface.cpp](../sgp/vsurface.cpp): entire 2803-line file
+  gated `_WIN32`. DirectDraw surface manager.
+- [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp) +
+  [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp): wholly
+  gated `_WIN32`.
+- [sgp/DirectDraw Calls.h](../sgp/DirectDraw%20Calls.h): wholly gated
+  `_WIN32` so the `<ddraw.h>` pull doesn't reach non-Windows.
+- [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`, `fmodvc.lib`,
+  `binkw32.lib`, `SMACKW32.LIB`, `mss32.lib` — only linked on
+  Windows via the top-level CMakeLists `if(WIN32)`. Deleted in
+  Phase 5 once SDL3 owns the surface stack.
+- Phase 5 milestone: **game boots into main menu on macOS/Linux**,
+  presenting the existing RGB565 framebuffer via `SDL_Texture` with
+  `SDL_PIXELFORMAT_RGB565`. End-to-end at least one battle playable.
+
+#### Phase 6 — RGBA8888 pipeline
+
+- [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp): all 77
+  inline-asm blocks gated `_WIN32`. **Game renders blank on non-Windows
+  until Phase 6 rewrites these as portable C/SIMD** against a 32-bit
+  RGBA framebuffer.
+- [TileEngine/renderworld.cpp](../TileEngine/renderworld.cpp): 10
+  more inline-asm blocks (sprite blitters with Z-buffer handling).
+- [sgp/shading.cpp](../sgp/shading.cpp): single inline-asm block.
+- [Ja2/local.h](../Ja2/local.h): `PIXEL_DEPTH 16` constant. Phase 6
+  changes to 32 and propagates.
+- The 8bpp→16bpp palette LUTs, shading tables, translucency tables,
+  fade tables — all need RGBA8888 regenerations.
+- `GetRGBDistribution()` in video.cpp goes away (only relevant for
+  RGB565 mask detection).
+
+#### Phase 7 — audio
+
+- [Utils/dsutil.cpp](../Utils/dsutil.cpp): entire DirectSound utility
+  gated `_WIN32`. Phase 7 replaces with SDL3_mixer or SoLoud /
+  miniaudio glue.
+- [sgp/soundman.cpp](../sgp/soundman.cpp): the JA2 sound API. Uses
+  FMOD throughout. Phase 7 keeps the public API stable but swaps the
+  backend.
+- `fmodvc.lib` / `mss32.lib` linkage already conditional on `WIN32`.
+- [sgp/Mss.h](../sgp/Mss.h) and `Mss-old.h`: Miles Sound System
+  headers. Phase 7 deletes once FMOD/MSS callers are migrated.
+
+#### Phase 8 — cinematics
+
+- [Utils/Cinematics.h](../Utils/Cinematics.h) / `.cpp` (Smacker):
+  entirely gated `_WIN32`. Phase 8 replaces with libsmacker (MIT,
+  open-source decoder for original Smacker format).
+- [Utils/Cinematics Bink.h](../Utils/Cinematics%20Bink.h) / `.cpp`
+  (Bink): entirely gated `_WIN32`. Phase 8 must decide between
+  asset-conversion (Smacker/WebM), FFmpeg-with-license, or just
+  skipping Bink cutscenes on non-Windows.
+- [Ja2/Intro.cpp](../Ja2/Intro.cpp): the intro-screen video player —
+  entire body gated `_WIN32`. Not currently dispatched to from gameplay
+  (the `MAP_EXIT_TO_INTRO_SCREEN` switch is commented out everywhere),
+  so the gate is safe.
+- `binkw32.lib` / `SMACKW32.LIB` linkage already conditional on `WIN32`.
+
+#### Phase 9 — fonts
+
+- [sgp/WinFont.cpp](../sgp/WinFont.cpp): entire GDI-backed TrueType
+  font rasterizer gated `_WIN32`. Phase 9 replaces with `stb_truetype`
+  (single-header, public domain).
+- [sgp/WinFont.h](../sgp/WinFont.h): non-Windows branch declares
+  inline no-op stubs for `InitWinFonts`, `CreateWinFont`,
+  `SetWinFontForeColor`, `PrintWinFont`, `GetWinFontHeight`, etc.
+  Phase 9 replaces these with the stb_truetype implementations.
+- [Utils/Font Control.cpp](../Utils/Font%20Control.cpp): two
+  `InitWinFonts` / `ShutdownWinFonts` call sites gated `_WIN32`.
+
+#### Phase 10 — packaging + CI
+
+- Top-level [CMakeLists.txt](../CMakeLists.txt): `add_executable(... WIN32 ...)`
+  could grow `MACOSX_BUNDLE` and Linux variants. Pre-built `.lib`
+  files (`binkw32.lib`, `lua51.lib`, `SMACKW32.LIB`,
+  `libexpatMT.lib`) already gated `if(WIN32)`. Pulling Lua, Expat,
+  Bink (when replaced), Smacker (when replaced) from source on every
+  platform is Phase 10 cleanup.
+- CI matrix for Windows / macOS / Linux. App bundle / AppImage / zip
+  packaging. None of this exists yet.
+
+### Deferred indefinitely — Multiplayer
+
+- JA2 uses **RakNet 3.401** as a Win32 prebuilt `.lib`
+  (`Multiplayer/raknet/RakNetLibStatic.lib`, 5.3 MB). The matching
+  3.x source isn't on any public mirror — Jenkins Software's SVN
+  died with the company. Facebook open-sourced only 4.x
+  ([facebookarchive/RakNet](https://github.com/facebookarchive/RakNet))
+  and 4.x has substantial API breaks from 3.x (`RakNetworkFactory`
+  removed, `AutoRPC` removed, `RPC()` gone, `BitStream` semantics
+  changed, types namespaced).
+- [Multiplayer/mp_stubs.cpp](../Multiplayer/mp_stubs.cpp) provides
+  no-op definitions for every external symbol JA2 references from
+  the network wrapper (~50 globals like `is_networked` /
+  `is_connected`, ~70 functions like `send_path` / `send_fire` /
+  `NetworkAutoStart`, plus `CTransferRules`). The `Multiplayer`
+  CMake target builds `mp_stubs.cpp` on non-Windows; on Windows it
+  builds the three wrapper files and links RakNet as before.
+- Reviving multiplayer on non-Windows = vendoring RakNet 4 + porting
+  JA2's wrapper code (~327 RakNet API references) per the upstream
+  `3.x_to_4.x_upgrade.txt`, **or** retargeting to a different netlib
+  (SDL3_net, enet, asio). Multi-day project either way.
+
+### Other clang-strictness fixes landed in Phase 1
+
+MSVC-tolerated patterns clang rejects, fixed as we hit them:
+
+- **MSVC `__int64`** → `int64_t`/`uint64_t` from `<cstdint>`.
+- **Stray `typename`** in template argument lists (popup_callback.h,
+  Singleton.h, several other places).
+- **`POPUP_OPTION::POPUP_OPTION(void)`** self-qualification on inline
+  declarations.
+- **`static`/non-static mismatch**: forward decls without `static`
+  but defs with `static` (DisplayCover.cpp, Music Control.cpp,
+  soundman.cpp, lua_env.cpp, lua_tactical.cpp).
+- **Out-of-line template-member redeclarations** without body
+  (BaseTable.h, DropDown.h, MilitiaWebsite.cpp).
+- **Explicit template specialization after implicit instantiation**:
+  forward-declared specializations at top of file (MilitiaWebsite.cpp).
+- **Narrowing in brace initializers**: per-entry casts to the target
+  type (Isometric Utils.cpp, Soldier Control.cpp), or rewrite as
+  assignments (AimSort.cpp, BobbyR.cpp).
+- **Pointer-to-smaller-int casts** on 64-bit: intermediate
+  `(uintptr_t)` cast acknowledges the truncation (Vehicles.cpp,
+  Strategic Movement.cpp, Soldier Control.cpp, soundman.cpp,
+  FileMan.cpp).
+- **Pointer-to-bool / pointer-to-zero comparisons**: rewritten with
+  `!= NULL` (XML_ComboMergeInfo.cpp, XML_ItemAdjustments.cpp). The
+  `SGP_THROW_IFFALSE` macro switched from `== false` to `!(cond)`.
+- **String-literal-macro concatenation** needs a space between
+  literal and identifier in C++11 (Button System.cpp).
+- **MSVC `swprintf(buf, fmt, ...)` 2-arg signature** vs POSIX 3-arg:
+  resolved by the `swprintf` macro + template helper. ~3000 call
+  sites covered automatically; ~120 pointer-buffer sites converted
+  to explicit `sgp_swprintf(buf, count, ...)`.
+- **`SoldierID` ambiguous conversion**: added `long` /
+  `unsigned long` constructors so `lua_Integer` (which is `long` on
+  clang/libc++) finds an unambiguous match.
+- **`_array` reserved name + dependent-base access** in
+  sgp_auto_memory.h: dropped extra `typename`, added `this->_array`.
+- **`Exception::what()` exception spec mismatch**: added `throw()`
+  to definition to match header.
+- **VFS macOS support**: ext/VFS/include/vfs/Core/vfs_types.h
+  switched `__linux__` branch to default-non-Windows so Apple
+  picks up the `<stdint.h>` typedefs.
+- **libpng macOS support**: ext/libpng/pngconf.h classic-MacOS
+  `<fp.h>` branch gated on `!__APPLE__`.
+- **zlib macOS support**: ext/zlib/zutil.h classic-MacOS `fdopen`
+  stub gated on `!__APPLE__`; gzguts.h includes `<unistd.h>` on
+  non-Windows.
 
 ---
 
-## Phase 1 — Build system portability
+## Phase 0 — Branch & baseline ✅
 
-Get CMake configuring on macOS and Linux, even if the resulting build
-is mostly stubs.
+Done.
 
-- Replace pre-built `.lib` files at repo root (`binkw32.lib`,
-  `lua51.lib`, `mss32.lib`, `SMACKW32.LIB`, `fmodvc.lib`,
-  `libexpatMT.lib`, `VtuneApi.lib`, `ddraw.lib`) with source builds
-  via `FetchContent` / `find_package` or vendored sources under
-  `ext/`.
-  - `lua51` → build Lua 5.1 from source (the existing TODO already
-    flags this).
-  - `libexpatMT` → use the system / vendored Expat.
-  - `mss32` / `fmodvc` / `SMACKW32` / `binkw32` → delete (replaced in
-    Phases 6–7). Stub their headers behind a temporary
-    `#if HAVE_LEGACY_AUDIO` until those phases land so the rest of the
-    code keeps compiling.
-- Add `SDL3` as a build dependency (FetchContent against the SDL3
-  release tag; fall back to system package if found).
-- Add toolchain files for clang on macOS and gcc/clang on Linux.
-- Switch executable target from `add_executable(... WIN32 ...)` to
-  conditional WIN32 / MACOSX_BUNDLE / regular.
-- Replace `windows.h`-only-for-typedefs usages with `<cstdint>`-based
-  equivalents (`UINT8`/`UINT16`/`UINT32` etc. in [sgp/types.h](../sgp/types.h)).
-- Get the project to *configure* on all three platforms even if it
-  doesn't yet link.
+- [docs/SDL3_PORT.md](SDL3_PORT.md) — this doc, committed.
+- `sdl3-port` branch created from `master`; no `master` changes.
 
-Exit criteria: `cmake --build` succeeds on Windows; configures (may
-fail to link) on macOS and Linux.
+---
 
-Risk: build-system churn affects every contributor. Land this phase
-as a single squashable PR with reviewers from upstream.
+## Phase 1 — Build system portability ✅
+
+**Stated goal**: configures on macOS/Linux.
+**Actual outcome**: configures AND compiles AND links 100% on macOS,
+producing a runnable (no-op) `JA2_ENGLISH` executable. Took ~50 commits
+because of the extensive Win32 surface across `sgp/`, the multiple
+inline-asm blocks, the Multiplayer/RakNet situation, and AppleClang's
+strictness vs MSVC.
+
+What landed:
+
+- Build system: pre-built `.lib` files gated `if(WIN32)`. `wine/`
+  subdir excluded from non-Windows. Resource compiler (`.rc`)
+  excluded.
+- Type portability: `sgp/types.h` uses `<cstdint>` instead of MSVC
+  `__int64`. Profiler ditto.
+- Vendored libs: bfVFS, libpng, zlib teach themselves macOS.
+- The whole gating/stub layer described above (msvc_compat.h + ~50
+  source files).
+
+Build verification on macOS:
+
+```
+$ cmake -S . -B build -DLanguages=ENGLISH -DApplications=JA2
+-- Configuring done
+-- Generating done
+$ cmake --build build -j 4
+[100%] Built target JA2_ENGLISH
+$ ./build/JA2_ENGLISH
+JA2 SDL3 port: non-Windows entry point not yet implemented.
+This stub exists so the build links; Phase 3 wires SDL3 in.
+```
+
+Exit criteria met. Phase 2 begins.
 
 ---
 
 ## Phase 2 — Portable I/O, time, memory, debug
 
 Strip Win32 dependencies out of the lowest layers of SGP so higher
-layers can be ported without dragging Windows in transitively.
+layers can be ported without dragging Windows in transitively. Replace
+compat-stub no-ops with real implementations.
 
-- [sgp/FileMan.cpp](../sgp/FileMan.cpp) → `<filesystem>` + `<cstdio>` /
-  fopen64. Case-insensitive filename resolution helper for Linux/macOS
-  (JA2 asset paths are inconsistently cased on disk; the upstream
-  Stracciatella project has a known-good implementation we can mirror).
-- [sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp) → same, plus
-  endianness audit (the SLF format is little-endian on disk).
-- [sgp/timer.cpp](../sgp/timer.cpp) → `std::chrono::steady_clock`
-  everywhere.
-- [sgp/MemMan.cpp](../sgp/MemMan.cpp) → trim to a portable allocator
-  shim; drop the Win32 heap helpers.
-- [sgp/DEBUG.cpp](../sgp/DEBUG.cpp),
-  [sgp/debug_win_util.cpp](../sgp/debug_win_util.cpp) → portable logging
-  via `sgp_logger`; SymGetLineFromAddr stack-trace bits gated behind
-  a Windows-only compilation unit (or replaced with `<stacktrace>`
-  when C++23 lands).
-- [sgp/Random.cpp](../sgp/Random.cpp) — already mostly portable, audit.
-- Delete `wine/` (the registry override is moot once `ddraw.dll` is
-  gone).
+**Concrete files to port:**
 
-Exit criteria: the non-video, non-input, non-audio parts of SGP build
-on all three platforms.
+1. [sgp/FileMan.cpp](../sgp/FileMan.cpp) — replace `CreateFile` /
+   `ReadFile` / `WriteFile` / `SetFilePointer` / `GetFileSize` /
+   `WIN32_FIND_DATA` enumeration with `std::ifstream` /
+   `std::ofstream` / `std::filesystem`. Add case-insensitive path
+   resolution for asset directories (Stracciatella's logic is a good
+   reference).
+2. [sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp) — port the
+   SLF archive reader. Endianness audit on the SLF header (it's
+   little-endian on disk; should already work on LE platforms, but
+   confirm).
+3. [Utils/Timer Control.cpp](../Utils/Timer%20Control.cpp) — rebuild
+   the clock + notify threads on `std::thread` + `std::chrono` +
+   `std::mutex` + `std::condition_variable`. Replace `timeSetEvent`
+   periodic callback with a scheduler thread. This is the most
+   complex Phase 2 task — JA2 has subtle timing assumptions.
+4. [sgp/MemMan.cpp](../sgp/MemMan.cpp) — drop the Win32 heap
+   debug-tracking branch entirely. The `MemAlloc`/`MemFree` macros
+   already collapse to `malloc`/`free` on non-MSVC.
+5. [sgp/DEBUG.cpp](../sgp/DEBUG.cpp), [sgp/debug_win_util.cpp](../sgp/debug_win_util.cpp) — portable logging (`sgp_logger` already
+   handles most of it). The stack-trace helpers in
+   `debug_win_util.cpp` should be gated `_WIN32`; non-Windows can use
+   `<stacktrace>` (C++23, not universally available yet) or libunwind.
+6. [sgp/timer.cpp](../sgp/timer.cpp) — replace the `SetTimer`-driven
+   game clock with a `std::chrono`-driven equivalent. Tiny file.
+7. Delete `wine/`. (The non-Win32 builds already exclude it.)
+8. Remove the now-redundant Win32 file I/O stubs from msvc_compat.h.
+
+**Exit criterion**: the non-video, non-input, non-audio parts of SGP
+do useful work on non-Windows. File I/O succeeds, the clock advances,
+SLF archives load.
 
 ---
 
 ## Phase 3 — SDL3 window, event loop, and message plumbing
 
-Bring SDL3 in at the top of the program, but don't yet render with it.
+Bring SDL3 in. This is the architectural shift the whole branch is
+named after.
 
-- Replace `WinMain` + `WindowProc` + Win32 message pump in
-  [sgp/sgp.cpp](../sgp/sgp.cpp) with `SDL_Init(SDL_INIT_VIDEO | …)` +
-  `SDL_CreateWindow` + a central `SDL_PollEvent` loop.
-- Replace `MessageBoxW` call sites with `SDL_ShowSimpleMessageBox`.
-- Replace `SetCursor`/`ShowCursor` with `SDL_HideCursor` /
-  `SDL_ShowCursor` / `SDL_SetCursor`.
-- Provide a `Ja2GetWindow()` / `Ja2GetRenderer()` accessor that the
-  video layer will use in Phase 4.
-- Keep `iScreenMode` plumbing but interpret it via SDL flags
-  (`SDL_WINDOW_FULLSCREEN` etc.).
-- Keep DirectDraw alive temporarily for *rendering only*; the message
-  pump is now SDL.
+**Build system:**
 
-Exit criteria: game window opens on all three platforms; game still
-renders via DirectDraw on Windows.
+- Add SDL3 dependency. Recommend `FetchContent` against the
+  SDL3 release tag, falling back to `find_package(SDL3 CONFIG)` if
+  the user has a system SDL3 installed:
+
+  ```cmake
+  find_package(SDL3 QUIET CONFIG)
+  if(NOT TARGET SDL3::SDL3)
+    include(FetchContent)
+    FetchContent_Declare(SDL3
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+      GIT_TAG release-3.2.x
+      GIT_SHALLOW TRUE)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(SDL3)
+  endif()
+  target_link_libraries(${exe} PRIVATE SDL3::SDL3)
+  ```
+
+- The executable target gains `SDL_main_handler` linkage (Windows)
+  or just `SDL3::SDL3` (others).
+
+**Source changes:**
+
+1. Replace the non-Windows stub `main()` in [sgp/sgp.cpp](../sgp/sgp.cpp)
+   with a real SDL3 entry: `SDL_Init(SDL_INIT_VIDEO)`,
+   `SDL_CreateWindow`, central `SDL_PollEvent` loop that fans into
+   the existing `QueueEvent` path (input.cpp) and calls `GameLoop`.
+   Keep Windows behavior unchanged for now (still uses WinMain
+   path) — landing both paths concurrently de-risks rollback.
+2. Replace `MessageBoxW` / `MessageBox` call sites with
+   `SDL_ShowSimpleMessageBox`. ~20-30 sites; mostly in
+   FatalError paths.
+3. Replace `SetCursor` / `ShowCursor` with
+   `SDL_HideCursor` / `SDL_ShowCursor` / `SDL_SetCursor`.
+4. Introduce a `Ja2GetWindow()` accessor that returns `SDL_Window*`
+   on non-Windows and `HWND` on Windows (or unify on `SDL_Window*`
+   and let DirectDraw take it via `SDL_GetWindowProperty`).
+5. Replace cnc-ddraw detection logic (the `bCncDdraw` path in
+   sgp.cpp) with `SDL_GetCurrentVideoDriver()` checks if needed.
+6. Honour `iScreenMode` via `SDL_WINDOW_FULLSCREEN` /
+   `SDL_WINDOW_RESIZABLE` etc.
+
+**Exit criterion**: window opens on all three OSes; mouse and
+keyboard events route into the event queue; game still renders via
+DirectDraw on Windows; game runs to main menu (rendering blank but
+not crashing) on macOS.
 
 ---
 
@@ -148,21 +545,34 @@ renders via DirectDraw on Windows.
 
 Replace DirectInput / Win32 keyboard & mouse messages with SDL events.
 
-- [sgp/input.cpp](../sgp/input.cpp) — drive the input queue from
-  `SDL_Event` (`SDL_EVENT_KEY_DOWN`, `SDL_EVENT_MOUSE_*`,
-  `SDL_EVENT_TEXT_INPUT`, `SDL_EVENT_MOUSE_WHEEL`).
-- Build a keycode translation table. JA2 stores raw scancodes in many
-  places (savegame hotkeys etc.) — preserve the wire format by
-  translating SDL_Scancode → the existing Win32 VK_* values that the
-  game already persists. Otherwise we break saves.
-- [sgp/mousesystem.cpp](../sgp/mousesystem.cpp) — should mostly just
-  consume the queue; spot-check for HWND-based hit testing.
-- Text-input fields (dialogs that take typed names) need
-  `SDL_StartTextInput` / `SDL_StopTextInput` gating around them.
-- Delete `dinput.h` / `dinput.lib` references.
+**Source changes:**
 
-Exit criteria: keyboard and mouse fully functional on all three
-platforms with the DirectDraw renderer.
+1. [sgp/input.cpp](../sgp/input.cpp) — `KeyboardHandler` /
+   `MouseHandler` Win32 hook procs replaced with an
+   `SDL_EVENT_KEY_DOWN` / `SDL_EVENT_KEY_UP` /
+   `SDL_EVENT_MOUSE_*` dispatch driven by Phase 3's `SDL_PollEvent`
+   loop.
+2. [Utils/KeyMap.cpp](../Utils/KeyMap.cpp) — rebuild the keycode
+   translation. **The numeric VK_* values must be preserved** for
+   savegame compatibility (they're persisted in hotkey config). Build
+   a translation table from `SDL_Scancode` to the existing VK_*
+   values.
+3. Mouse handling: ScreenToClient-style coordinate conversions
+   become `SDL_GetMouseState` calls (which already return window-
+   coordinate). Drop the `gusMouseXPos` / `gusMouseYPos` shim once
+   SDL is authoritative.
+4. `SDL_StartTextInput` / `SDL_StopTextInput` around the dialogs
+   that take typed names (use `gpCurrentStringDescriptor` as the
+   gate signal).
+5. Clipboard: `SDL_GetClipboardText` / `SDL_SetClipboardText` in
+   [Utils/Text Input.cpp](../Utils/Text%20Input.cpp).
+6. Cursor clipping: SDL3 has `SDL_SetWindowMouseRect`. Replace
+   `RestrictMouseCursor` / `ClipCursor`-using sites.
+7. Delete the `HHOOK ghKeyboardHook` / `ghMouseHook` globals and
+   any other Win32-only input plumbing.
+
+**Exit criterion**: keyboard, mouse, and clipboard fully functional
+on all three platforms. Game playable through menus.
 
 ---
 
@@ -172,152 +582,143 @@ Replace DirectDraw with SDL3 rendering while keeping the existing
 RGB565 internal pipeline. **This is the milestone where macOS and
 Linux first see pixels.**
 
-- Rewrite [sgp/video.cpp](../sgp/video.cpp) and
-  [sgp/vsurface.cpp](../sgp/vsurface.cpp):
-  - Primary surface → `SDL_Texture(SDL_PIXELFORMAT_RGB565,
-    SDL_TEXTUREACCESS_STREAMING)` sized to the game's logical
-    resolution.
-  - Backbuffer → plain heap `UINT16*` (no DD surface).
-  - `Flip` / `BltFast` → `SDL_UpdateTexture` + `SDL_RenderTexture` +
-    `SDL_RenderPresent`.
-- Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
-  [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp), [sgp/ddraw.h](../sgp/ddraw.h),
-  `ddraw.lib`.
-- Delete the cnc-ddraw detection in [sgp/sgp.cpp](../sgp/sgp.cpp) (the
-  `bCncDdraw` path).
-- Delete the `ADDTEXT_16BPP_REQUIRED` error path.
-- The 200+ blitters in [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp)
-  are *not* touched in this phase. They still write RGB565 to the
-  CPU-side framebuffer; SDL hands that to the GPU.
-- The inline-asm alpha blender stays for one more phase. Optionally,
-  replace it with portable C *now* if it's blocking macOS/Linux
-  compilation (MSVC inline-asm syntax doesn't survive clang/gcc).
-  This may force us to write the C fallback earlier than planned.
+**Source changes:**
 
-Exit criteria: game boots into the main menu on all three platforms
-and renders correctly. End-to-end at least one battle plays.
+1. Rewrite [sgp/video.cpp](../sgp/video.cpp) — at this scale, easier
+   to rewrite than to port. Keep the SGP public API
+   (`InvalidateRegion` / `LockBackBuffer` / `RefreshScreen` etc.)
+   stable. Implementation:
+   - Primary surface → `SDL_Texture(SDL_PIXELFORMAT_RGB565,
+     SDL_TEXTUREACCESS_STREAMING)` at game's logical resolution.
+   - Backbuffer / framebuffer / mouse buffer → plain heap `UINT16*`
+     (no DD surface).
+   - `Flip` / `BltFast` → `SDL_UpdateTexture` + `SDL_RenderTexture`
+     + `SDL_RenderPresent`.
+2. Same treatment for [sgp/vsurface.cpp](../sgp/vsurface.cpp). The
+   200+ blitters in [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp)
+   are NOT touched in this phase — they still write RGB565 to CPU-
+   side buffers; SDL hands those buffers to the GPU.
+3. Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
+   [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp),
+   [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`.
+4. Delete cnc-ddraw detection (the `bCncDdraw` path).
+5. Delete the `ADDTEXT_16BPP_REQUIRED` error path
+   ([sgp/video.cpp:2780](../sgp/video.cpp#L2780)).
+6. The inline-asm RGB565 alpha blender at
+   [sgp/vobject_blitters.cpp:19-60](../sgp/vobject_blitters.cpp#L19-L60)
+   needs replacement with portable C — keep RGB565 math, just stop
+   using `__asm`. This is a stop-gap; Phase 6 retires it entirely.
+
+**Exit criterion**: game boots into main menu on all three platforms
+and renders correctly via the existing RGB565 pipeline. End-to-end
+at least one battle playable.
 
 ---
 
 ## Phase 6 — RGBA8888 pipeline conversion
 
 Now that everything routes through SDL, swap the internal pixel
-format. This is the biggest, most file-touching phase.
+format.
 
-- Change `PIXEL_DEPTH` in [Ja2/local.h](../Ja2/local.h) from 16 to 32.
-- Wide-rename `UINT16* pBuffer` → `UINT32* pBuffer` across every
-  blitter and caller. Adjust pitch math (bytes-per-pixel doubles).
-- Regenerate the 8bpp→32bpp palette LUTs in
-  [sgp/himage.cpp](../sgp/himage.cpp) and friends. The shading,
-  fade-to-black, fade-to-white, translucency, and night-vision tables
-  in [sgp/shading.cpp](../sgp/shading.cpp) all need RGBA8888
-  equivalents — the precomputed tables that exist today are RGB565-
-  shaped.
-- Replace the inline-asm `blendWithAlpha` and every other RGB565
-  bit-math site with portable C (or SDL_SIMD intrinsics). The
-  `gusRedMask` / `gusGreenMask` / `gusBlueMask` runtime detection in
-  [sgp/video.cpp](../sgp/video.cpp) becomes constant and most of
-  `GetRGBDistribution()` evaporates.
-- Update all the saveable surfaces / screenshot writers in
-  [sgp/video.cpp](../sgp/video.cpp) (the TGA writers).
-- Z-buffer stays UINT16 (it's a depth value, not a color).
-- Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` (or
-  whatever endianness matches the in-memory layout).
+1. Change `PIXEL_DEPTH` in [Ja2/local.h](../Ja2/local.h) from 16 to 32.
+2. Wide-rename `UINT16* pBuffer` → `UINT32* pBuffer` across every
+   blitter and caller. Adjust pitch math (bytes-per-pixel doubles).
+3. Regenerate the 8bpp→32bpp palette LUTs in
+   [sgp/himage.cpp](../sgp/himage.cpp). The shading, fade-to-black,
+   fade-to-white, translucency, and night-vision tables in
+   [sgp/shading.cpp](../sgp/shading.cpp) all need RGBA8888
+   equivalents.
+4. Rewrite every blitter in
+   [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp) — there
+   are dozens of variants (TransZ, TransZNB, TransZClip,
+   TransZTranslucent, MonoShadow, Pixelate, …). Drop the inline asm.
+5. Replace the inline-asm `blendWithAlpha` and every other RGB565
+   bit-math site with portable C (consider SDL_SIMD intrinsics).
+6. Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` or
+   matching endianness.
+7. Update saveable surfaces / screenshot writers
+   ([sgp/video.cpp](../sgp/video.cpp) TGA path).
+8. Z-buffer stays `UINT16` (it's a depth value, not a color).
 
-Risk: this is the phase where game-rendering regressions hide. Plan
-to do golden-image regression testing — render a known scene under
-the old pipeline (Phase 5 tag) and the new pipeline, diff the
-buffers.
+**Risk**: this is the phase where game-rendering regressions hide.
+Plan golden-image regression testing — render a known scene under
+Phase 5 (tag the commit) vs Phase 6, diff the buffers.
 
-Exit criteria: game is visually identical (or better) to the Phase 5
-output, end-to-end, on all three platforms.
+**Exit criterion**: game is visually identical (or better) to Phase 5
+on all three platforms.
 
 ---
 
 ## Phase 7 — Audio: SFX & music
 
-Replace FMOD / Miles Sound System with SDL3-friendly audio.
+Replace FMOD / Miles Sound System.
 
-- Evaluate **SDL3_mixer** vs **SoLoud** vs **miniaudio** for the
-  primary audio engine. Bias toward SDL3_mixer since we're already on
-  SDL3, unless it lacks features the game needs (positional audio,
-  arbitrary channel counts, low-latency triggering).
-- Replace [sgp/soundman.cpp](../sgp/soundman.cpp) backend; keep the
-  public API stable so the game's call sites don't change.
-- Audit MSS-isms in headers ([sgp/Mss.h](../sgp/Mss.h),
-  [sgp/Mss-old.h](../sgp/Mss-old.h)) — many call signatures are MSS-
-  shaped (HSAMPLE/HSTREAM handles); these become opaque pointers
-  backed by the new engine.
-- Music streaming (Ogg/MP3) — ensure file-format support matches what
-  the game actually ships.
+- Pick: SDL3_mixer vs SoLoud vs miniaudio. Bias toward SDL3_mixer
+  (already on SDL3). Audit feature coverage first — positional audio?
+  arbitrary channel counts? low-latency triggering?
+- Replace [sgp/soundman.cpp](../sgp/soundman.cpp) backend; keep public
+  API stable.
+- Audit MSS-isms in [sgp/Mss.h](../sgp/Mss.h) / `Mss-old.h` — many
+  call signatures are MSS-shaped (`HSAMPLE`/`HSTREAM` handles);
+  these become opaque pointers backed by the new engine.
+- Music streaming (Ogg/MP3) — ensure file-format support matches
+  what the game ships.
+- Delete `fmodvc.lib` linkage.
 
-Exit criteria: game plays SFX and music on all three platforms.
+**Exit criterion**: SFX and music on all three platforms.
 
 ---
 
 ## Phase 8 — Cinematics
 
-JA2 1.13 plays Smacker (`.smk`) and Bink (`.bik`) videos for the
-intro/ending. These libraries are proprietary and not buildable on
-non-Windows.
-
-- Replace Smacker decoding with **libsmacker** (open-source, MIT-
-  licensed, decodes original Smacker format).
-- Bink is harder — RAD Game Tools' format and the decoder are
-  closed. Options:
-  1. Drop Bink playback. Convert the assets to Smacker/WebM offline
-     as a one-time migration; ship those instead.
-  2. Stub Bink to skip the affected cutscene on non-Windows.
-  3. Use FFmpeg if licensing allows.
-  Decision deferred until we audit which assets are Bink vs Smacker.
+- Replace Smacker decoding with [libsmacker](https://libsmacker.sourceforge.net/)
+  (open-source, MIT-licensed, decodes original Smacker format).
+- Bink: drop, or convert assets to Smacker/WebM, or use FFmpeg if
+  licensing allows. Decision deferred until we audit which assets
+  are which.
 - Render decoded video frames into an `SDL_Texture` and present.
+- Delete `binkw32.lib` / `SMACKW32.LIB` linkage.
 
-Exit criteria: cinematics play (or are gracefully skipped) on all
-three platforms.
+**Exit criterion**: cinematics play (or are gracefully skipped) on
+all three platforms.
 
 ---
 
 ## Phase 9 — Fonts & GDI cleanup
 
-- [sgp/WinFont.cpp](../sgp/WinFont.cpp) uses GDI to rasterize TrueType
-  text. Most of the game uses pre-rendered bitmap fonts shipped in
-  the asset bundle, so this code path is only used in a few places
-  (mod-added text, debug overlays). Replace with **stb_truetype**
+- Replace [sgp/WinFont.cpp](../sgp/WinFont.cpp) with stb_truetype
   (single-header, public domain).
+- Most of the game uses pre-rendered bitmap fonts shipped in the
+  asset bundle, so this code path is only used in a few places
+  (mod-added text, debug overlays).
 
-Exit criteria: all text renders on all three platforms.
+**Exit criterion**: all text renders on all three platforms.
 
 ---
 
 ## Phase 10 — Platform packaging & CI
 
-- macOS: produce an `.app` bundle, code-signing config (unsigned for
-  now), resource path resolution via `SDL_GetBasePath`.
-- Linux: AppImage or Flatpak (probably AppImage initially for
-  simplicity).
-- Windows: keep the existing installer flow if any; otherwise produce
-  a zip.
-- CI matrix: build all three on every PR. At minimum, "configures &
-  compiles" on each; ideally also a headless boot smoke test.
-
-Exit criteria: a tagged release artifact for each of the three
-platforms.
+- macOS: `.app` bundle, code-signing config (unsigned for now),
+  resource path resolution via `SDL_GetBasePath`.
+- Linux: AppImage (initially).
+- Windows: keep existing installer flow; produce a zip artifact too.
+- CI matrix: build all three on every PR. At minimum "configures &
+  compiles". Ideally a headless boot smoke test.
 
 ---
 
-## Open questions to resolve as we go
+## Open questions / decisions still pending
 
-1. **Lua 5.1 vs Lua 5.4** — the TODO mentions building Lua from
-   source. JA2 mods may depend on 5.1 semantics. Default: stay on
-   5.1.x source build, defer any version bump.
-2. **Multiplayer code** — currently a separate static lib. Keep
-   linking, defer any porting unless we hit Win32 deps that block
-   Phase 1.
+1. **Lua 5.1 vs Lua 5.4** — the master-branch TODO mentions building
+   Lua from source. JA2 mods may depend on 5.1 semantics. Default:
+   stay on 5.1.x source build, defer any version bump.
+2. **Multiplayer long-term** — RakNet 4 port, SDL3_net swap, or just
+   leave it Windows-only forever? Question for the maintainers.
 3. **Editor builds** — JA2MAPEDITOR / JA2UBMAPEDITOR targets must
-   stay compilable. Plan: editor uses the same SDL3 surface; no
-   separate path.
-4. **Threading** — audit for `CreateThread` / `_beginthread` usage
-   and convert to `std::thread`.
+   keep building. Should they share the SDL3 surface or stay legacy?
+4. **Threading** — once Phase 2 ports Timer Control to std::thread,
+   audit other `CreateThread` / `_beginthread` usage. Saw a few in
+   sgp.cpp's WindowProcedure.
 5. **Save format compatibility** — must not change. Worth a fuzz
    round-trip test before merging Phase 6.
 
@@ -325,8 +726,29 @@ platforms.
 
 - [ja2-stracciatella](https://github.com/ja2-stracciatella/ja2-stracciatella) —
   ported the *original* JA2 to SDL2 over ~10 years. Their video,
-  input, audio, and filesystem layers are a useful reference but
-  cannot be copied wholesale — they diverged from the 1.13 lineage
-  long ago and the 1.13 feature surface is dramatically larger.
-  License is compatible (SFI-1.0 / GPL-style); attribution required
-  if we lift specific code.
+  input, audio, and filesystem layers are useful reference but can't
+  be copied wholesale — they diverged from the 1.13 lineage long ago
+  and 1.13's feature surface is dramatically larger. License is
+  compatible (SFI-1.0 / GPL-style); attribution required if we lift
+  specific code.
+- [facebookarchive/RakNet](https://github.com/facebookarchive/RakNet)
+  — RakNet 4.081, the only public RakNet source. JA2 uses 3.401
+  which has incompatible API; see Multiplayer section.
+- [libsdl-org/SDL](https://github.com/libsdl-org/SDL) — SDL3, latest
+  release.
+- [nothings/stb](https://github.com/nothings/stb) — stb_truetype for
+  Phase 9.
+- [libsmacker](https://libsmacker.sourceforge.net/) — Phase 8 Smacker
+  replacement.
+
+---
+
+## Commit log shape
+
+Roughly 50 commits on `sdl3-port` past `master` at the close of
+Phase 1. Each commit is scoped to a small, reviewable change with a
+concrete message. The first commits (Phase 0/1 baseline) and the
+final Phase 1 close are easy to identify in the log. The middle is a
+long sequence of clang-strictness fixes and Win32-gating commits;
+they could be squashed before merging upstream if desired, but the
+granularity is handy for bisecting regressions.
