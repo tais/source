@@ -1416,3 +1416,19 @@ static bool CallGameLoop(bool wait)
 }
 
 #endif // _WIN32
+
+
+#ifndef _WIN32
+// Phase 3 will replace this with an SDL_main entry point that
+// initializes SDL3, creates the window, and dispatches into the
+// game loop. For now the non-Windows executable links but exits
+// immediately -- enough to verify the build hits 100%.
+#include <cstdio>
+int main(int /*argc*/, char** /*argv*/)
+{
+	std::fprintf(stderr,
+		"JA2 SDL3 port: non-Windows entry point not yet implemented.\n"
+		"This stub exists so the build links; Phase 3 wires SDL3 in.\n");
+	return 0;
+}
+#endif
