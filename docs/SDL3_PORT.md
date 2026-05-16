@@ -692,48 +692,56 @@ below).
    SetMouseCursorProperties / etc. Heap UINT16* buffers behind the
    Lock entry points; `SDL_UpdateTexture` + `RenderTexture` +
    `RenderPresent` in RefreshScreen.
-2. Same treatment for [sgp/vsurface.cpp](../sgp/vsurface.cpp). **Not
-   yet** — vsurface is the SGPVSurface manager (BltVideoSurface /
-   AddStandardVideoSurface / ColorFillVideoSurfaceArea / ...), still
-   stubbed in sgp_non_win32_stubs.cpp. Next slice.
-3. Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
+2. Same treatment for [sgp/vsurface.cpp](../sgp/vsurface.cpp).
+   **Partially done in [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)** —
+   the pure-C++ pieces are ported (ClipRectangle clipping geometry +
+   SurfaceData std::map registries). Still stubbed in
+   sgp_portable_stubs.cpp: the SGPVSurface linked-list manager
+   (AddStandardVideoSurface / GetVideoSurface / DeleteVideoSurfaceFromIndex /
+   InitializeVideoSurfaceManager / ShutdownVideoSurfaceManager), the
+   blitters (BltVideoSurface / BltStretchVideoSurface /
+   BltVideoSurfaceToVideoSurface / BltVSurfaceUsingDD), and
+   Lock/UnLockVideoSurface / ColorFillVideoSurfaceArea /
+   ShadowVideoSurfaceRect* / SetVideoSurfaceTransparency. Next slice.
+3. ~~Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
    [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp),
-   [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`. **Pending Phase 5b.**
-4. Delete cnc-ddraw detection (the `bCncDdraw` path). **Pending
-   Phase 5b** — lives inside `WinMain` which gets rewritten then.
-5. Delete the `ADDTEXT_16BPP_REQUIRED` error path
-   ([sgp/video.cpp:2780](../sgp/video.cpp#L2780)). **Done implicitly
-   — sdl_video.cpp doesn't have it.**
+   [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`.~~ **Done** (Phase 5b
+   commit 0271f6d9). The .cpp files are removed from sgpSrc;
+   ddraw.lib dropped from the Windows Ja2_Libraries link list.
+   sgp/ddraw.h still on disk but no longer referenced.
+4. Delete cnc-ddraw detection (the `bCncDdraw` path). **Pending**
+   — lives inside `WinMain` which gets rewritten in the WinMain-on-
+   SDL_main slice.
+5. ~~Delete the `ADDTEXT_16BPP_REQUIRED` error path~~ **Done
+   implicitly** — sdl_video.cpp doesn't have it.
 6. The inline-asm RGB565 alpha blender at
    [sgp/vobject_blitters.cpp:19-60](../sgp/vobject_blitters.cpp#L19-L60)
    needs replacement with portable C — keep RGB565 math, just stop
-   using `__asm`. This is a stop-gap; Phase 6 retires it entirely.
-   **Pending** — current `_WIN32` gating means the asm only kicks in
-   on MSVC, so non-Windows builds already use the portable fallback.
+   using `__asm`. **Pending** — current `_WIN32` gating means the
+   asm only kicks in on MSVC, so non-Windows builds already use the
+   portable fallback. Phase 6 retires it entirely.
 
-### Phase 5b — Windows-flip: drop DirectDraw, run sdl_video on Windows too
+### Phase 5b — structural flip: SDL3 is the only video path (✅ done 2026-05-16)
 
-User confirmed (2026-05-16) the original pivot stands: SDL3 must be
-the active video path on Windows as well, not just a non-Windows
-alternative. The architecture supports this today (sdl_video.cpp is
-portable C++ + SDL3, no platform-specific code), but flipping
-Windows over needs:
+Commits `0271f6d9` (the structural flip) + `ed98c9b6` (rename
+sgp_non_win32_* → sgp_portable_*). User signaled they're not
+verifying the Windows build for now — the flip is purely structural,
+intended to make the codebase architecturally correct ("SDL3
+everywhere") while macOS continues to be the verification platform.
 
-1. Drop the `#ifndef _WIN32` body gate from `sdl_video.cpp` so the
-   TU compiles on Windows too. Add an `InitializeVideoManager(HINSTANCE,
-   UINT16, void*)` compat overload (under `#ifdef _WIN32`) that
-   ignores its args and delegates to the void version. (Or rewrite
-   `WinMain` so the overload isn't needed.)
-2. Remove `sgp/video.cpp`, `sgp/vsurface.cpp`,
+What landed:
+
+1. ~~Drop the `#ifndef _WIN32` body gate from `sdl_video.cpp`~~ done.
+   No HINSTANCE-overload added — the WinMain rewrite below makes
+   that overload unnecessary, so we just drop it.
+2. ~~Remove `sgp/video.cpp`, `sgp/vsurface.cpp`,
    `sgp/DirectDraw Calls.cpp`, `sgp/DirectX Common.cpp` from
-   `sgpSrc` in [sgp/CMakeLists.txt](../sgp/CMakeLists.txt) (they're
-   already `#ifdef _WIN32` bodies that produce empty TUs on
-   non-Windows; this just makes them gone everywhere).
-3. Add `sdl_video.cpp` + `sgp_non_win32_globals.cpp` +
-   `sgp_non_win32_stubs.cpp` to `sgpSrc` unconditionally (rename
-   pending — the latter two are no longer non-Win32-specific).
-4. Drop `ddraw.lib` from the Windows `Ja2_Libraries` list in
-   [CMakeLists.txt:194](../CMakeLists.txt#L194).
+   `sgpSrc`.~~ done.
+3. ~~Add `sdl_video.cpp` + `sgp_portable_globals.cpp` +
+   `sgp_portable_stubs.cpp` to `sgpSrc` unconditionally.~~ done.
+4. ~~Drop `ddraw.lib` from the Windows `Ja2_Libraries` list.~~ done.
+**Still pending in Phase 5b:**
+
 5. `WinMain` in [sgp/sgp.cpp](../sgp/sgp.cpp) at ~line 690 still owns
    ~900 lines of Win32 plumbing: `WNDCLASSEX` / `CreateWindowEx` /
    `TranslateMessage` + `DispatchMessage` pump, `WindowProcedure` /
@@ -748,10 +756,12 @@ Windows over needs:
    ([sgp/WinFont.cpp:425-466](../sgp/WinFont.cpp#L425-L466)) calls
    `GetVideoSurfaceDDSurface` / `IDirectDrawSurface2_GetDC` /
    `TextOutW` — disable this block (the SDL_ttf / stb_truetype Phase
-   9 replacement gives portable text rendering).
-7. Verify the build on a real Windows host before merging — the
-   above is a structural change with no way to test from macOS, and
-   the risk of subtle WinMain regressions is real.
+   9 replacement gives portable text rendering). Currently still
+   `#ifdef _WIN32`-gated; will fail to compile on Windows now that
+   the DD getters are gone, but Windows builds aren't being verified.
+7. `vobject_blitters.cpp` inline-asm blocks (still `_WIN32`-gated):
+   MSVC-syntax `__asm { }`. On clang these wouldn't compile anyway;
+   they only kick in on MSVC. Replace with portable C in Phase 6.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
 three platforms and renders correctly via the existing RGB565
