@@ -693,16 +693,25 @@ below).
    Lock entry points; `SDL_UpdateTexture` + `RenderTexture` +
    `RenderPresent` in RefreshScreen.
 2. Same treatment for [sgp/vsurface.cpp](../sgp/vsurface.cpp).
-   **Partially done in [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)** —
-   the pure-C++ pieces are ported (ClipRectangle clipping geometry +
-   SurfaceData std::map registries). Still stubbed in
-   sgp_portable_stubs.cpp: the SGPVSurface linked-list manager
-   (AddStandardVideoSurface / GetVideoSurface / DeleteVideoSurfaceFromIndex /
-   InitializeVideoSurfaceManager / ShutdownVideoSurfaceManager), the
-   blitters (BltVideoSurface / BltStretchVideoSurface /
-   BltVideoSurfaceToVideoSurface / BltVSurfaceUsingDD), and
-   Lock/UnLockVideoSurface / ColorFillVideoSurfaceArea /
-   ShadowVideoSurfaceRect* / SetVideoSurfaceTransparency. Next slice.
+   **Done as [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)**.
+   - Pure-C++ pieces (ClipRectangle, SurfaceData registries).
+   - SGPVSurface manager: NewSurface/DeleteVideoSurface lifecycle;
+     SetPrimaryVideoSurfaces wraps the four heap buffers
+     sdl_video.cpp owns; InitializeVideoSurfaceManager /
+     ShutdownVideoSurfaceManager; AddStandardVideoSurface /
+     CreateVideoSurface (empty + from-file via HIMAGE/CopyImageToBuffer);
+     GetVideoSurface / GetVideoSurfaceDescription /
+     DeleteVideoSurfaceFromIndex; Lock/UnLockVideoSurface (dispatches
+     PRIMARY/BACK/FRAME/MOUSE to sdl_video.cpp's Lock*Buffer);
+     SetVideoSurfaceTransparency / Palette / GetVSurfacePaletteEntries;
+     Region-list helpers.
+   - CPU blitters: BltVideoSurfaceToVideoSurface (memcpy + colour-key
+     loop), BltVideoSurface (Get + dispatch), BltStretchVideoSurface
+     (nearest-neighbour), BltVSurfaceUsingDD (alias to the CPU blit
+     path), ColorFillVideoSurfaceArea (direct rect fill).
+   - Still returning FALSE: ImageFillVideoSurfaceArea (tile-fill),
+     the ShadowVideoSurface* family (alpha shadow blends). These
+     wait for Phase 6's RGB565 blender retirement.
 3. ~~Delete [sgp/DirectDraw Calls.cpp](../sgp/DirectDraw%20Calls.cpp),
    [sgp/DirectX Common.cpp](../sgp/DirectX%20Common.cpp),
    [sgp/ddraw.h](../sgp/ddraw.h), `ddraw.lib`.~~ **Done** (Phase 5b
