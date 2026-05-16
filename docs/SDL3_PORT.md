@@ -13,7 +13,7 @@ This lives on the `sdl3-port` branch. `master` is left untouched.
 | 0 | Branch + plan doc | ✅ Done |
 | 1 | Build system portability — configures, compiles, and links on macOS | ✅ Done |
 | 2 | Portable file I/O / time / memory / debug | Partial via compat shims; real porting pending |
-| 3 | SDL3 window + event loop, drop WinMain | Not started |
+| 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
 | 5 | SDL3 video (RGB565 transitional), retire DirectDraw | Not started |
 | 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | Not started |
@@ -488,39 +488,23 @@ SLF archives load.
 Bring SDL3 in. This is the architectural shift the whole branch is
 named after.
 
-**Build system:**
+**Build system:** ✅ already landed.
 
-- Add SDL3 dependency. Recommend `FetchContent` against the
-  SDL3 release tag, falling back to `find_package(SDL3 CONFIG)` if
-  the user has a system SDL3 installed:
-
-  ```cmake
-  find_package(SDL3 QUIET CONFIG)
-  if(NOT TARGET SDL3::SDL3)
-    include(FetchContent)
-    FetchContent_Declare(SDL3
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-      GIT_TAG release-3.2.x
-      GIT_SHALLOW TRUE)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(SDL3)
-  endif()
-  target_link_libraries(${exe} PRIVATE SDL3::SDL3)
-  ```
-
-- The executable target gains `SDL_main_handler` linkage (Windows)
-  or just `SDL3::SDL3` (others).
+- SDL3 is pulled in via `find_package(SDL3 CONFIG)` with a
+  `FetchContent` fallback against `release-3.2.16`. Linked to the
+  executable on non-Windows only.
+- Windows continues to use the legacy DirectDraw/Win32 path during
+  the transition. SDL3 only becomes mandatory on Windows once Phase
+  5 retires DirectDraw entirely.
 
 **Source changes:**
 
-1. Replace the non-Windows stub `main()` in [sgp/sgp.cpp](../sgp/sgp.cpp)
-   with a real SDL3 entry: `SDL_Init(SDL_INIT_VIDEO)`,
-   `SDL_CreateWindow`, central `SDL_PollEvent` loop that fans into
-   the existing `QueueEvent` path (input.cpp) and calls `GameLoop`.
-   Keep Windows behavior unchanged for now (still uses WinMain
-   path) — landing both paths concurrently de-risks rollback.
+1. ✅ Done (minimal): Non-Windows `main()` in [sgp/sgp.cpp](../sgp/sgp.cpp)
+   now initializes SDL3, opens a window, runs an `SDL_PollEvent`
+   loop that exits on quit / Escape, and clears to dark blue each
+   frame. **Still TODO**: fan `SDL_PollEvent` into JA2's
+   `QueueEvent`, call `GameLoop` from the loop, route the
+   framebuffer to an `SDL_Texture` (Phase 5).
 2. Replace `MessageBoxW` / `MessageBox` call sites with
    `SDL_ShowSimpleMessageBox`. ~20-30 sites; mostly in
    FatalError paths.
