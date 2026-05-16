@@ -1410,69 +1410,29 @@ static bool CallGameLoop(bool wait)
 
 
 #ifndef _WIN32
-// Phase 3 SDL3 entry point. Opens a window, runs an event loop that
-// pumps SDL events into JA2's QueueEvent path, and clears to a solid
-// colour each frame. Game-loop dispatch (GameLoop()) and framebuffer
-// presentation (Phase 5) are still TODO; this slice covers Phase 3
-// shell + Phase 4 input plumbing.
+// Phase 5 first-cut SDL3 entry point. Uses sdl_video.cpp's real
+// video manager (heap RGB565 buffers + SDL_Texture) so the
+// framebuffer is now a JA2 surface; the test pattern is written into
+// the real LockFrameBuffer path and presented via RefreshScreen.
+// The game loop (GameLoop()) and asset loading are still TODO --
+// those land as later Phase 5 slices replace the remaining stubs.
 #include <SDL3/SDL.h>
 #include <cstdio>
 #include "types.h"
+#include "video.h"
 #include "sdl_input.h"
 
 int main(int /*argc*/, char** /*argv*/)
 {
-	if (!SDL_Init(SDL_INIT_VIDEO)) {
-		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+	if (!InitializeVideoManager()) {
+		std::fprintf(stderr, "InitializeVideoManager failed\n");
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow(
-		"Jagged Alliance 2 1.13 (SDL3 port -- pre-Phase-5)",
-		640, 480,
-		SDL_WINDOW_RESIZABLE);
-	if (!window) {
-		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-		SDL_Quit();
-		return 1;
-	}
-
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
-	if (!renderer) {
-		std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
-		SDL_DestroyWindow(window);
-		SDL_Quit();
-		return 1;
-	}
-
-	// Phase 5 first cut: an RGB565 streaming texture sized to JA2's
-	// logical resolution. We render a test pattern into it each frame
-	// to prove the upload path works end-to-end. The Phase 5 proper
-	// commit replaces the test-pattern fill with a memcpy from JA2's
-	// real RGB565 framebuffer (gpFrameData / pBuffer in video.cpp).
-	constexpr int kFbW = 640;
-	constexpr int kFbH = 480;
-	SDL_Texture* framebuffer = SDL_CreateTexture(
-		renderer,
-		SDL_PIXELFORMAT_RGB565,
-		SDL_TEXTUREACCESS_STREAMING,
-		kFbW, kFbH);
-	if (!framebuffer) {
-		std::fprintf(stderr, "SDL_CreateTexture(RGB565) failed: %s\n",
-		             SDL_GetError());
-		SDL_DestroyRenderer(renderer);
-		SDL_DestroyWindow(window);
-		SDL_Quit();
-		return 1;
-	}
-	SDL_SetTextureScaleMode(framebuffer, SDL_SCALEMODE_NEAREST);
-
-	std::printf("JA2 SDL3 port -- window open at %dx%d (RGB565). "
-	            "Input events route into QueueEvent (debug stub). "
-	            "Close the window or press Esc to exit.\n", kFbW, kFbH);
+	std::printf("JA2 SDL3 port -- video manager up. Close the window "
+	            "or press Esc to exit.\n");
 
 	UINT32 frame = 0;
-
 	bool running = true;
 	while (running) {
 		SDL_Event event;
@@ -1481,46 +1441,40 @@ int main(int /*argc*/, char** /*argv*/)
 				running = false;
 				continue;
 			}
-			// Treat Escape as a quit shortcut while there's no game
-			// loop driving the close path on its own.
 			if (event.type == SDL_EVENT_KEY_DOWN &&
 			    event.key.key == SDLK_ESCAPE)
 			{
 				running = false;
 			}
 		}
-		// Lock the streaming texture, write a test pattern, present.
-		// Pattern: animated diagonal stripes in RGB565. When Phase 5
-		// proper lands, this lock/unlock dance gets pointed at JA2's
-		// framebuffer instead.
-		void* pixels = nullptr;
-		int pitch = 0;
-		if (SDL_LockTexture(framebuffer, nullptr, &pixels, &pitch)) {
-			Uint16* row = static_cast<Uint16*>(pixels);
-			const int stride = pitch / 2; // RGB565 = 2 bytes/pixel
-			for (int y = 0; y < kFbH; ++y) {
-				for (int x = 0; x < kFbW; ++x) {
+
+		// Write a test pattern into the real framebuffer via the
+		// public Lock/Unlock API. This proves the SDL_Texture upload
+		// is driven by JA2's surface contract -- later slices delete
+		// this block when the game's own renderers do the writes.
+		UINT32 pitch = 0;
+		UINT16* fb = (UINT16*)LockFrameBuffer(&pitch);
+		if (fb) {
+			extern UINT16 SCREEN_WIDTH;
+			extern UINT16 SCREEN_HEIGHT;
+			const int stride = pitch / 2;
+			for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+				for (int x = 0; x < SCREEN_WIDTH; ++x) {
 					const int v = (x + y + (int)frame) & 0xFF;
-					// RGB565: rrrrr gggggg bbbbb
 					const Uint16 r = (v >> 3) & 0x1F;
 					const Uint16 g = (((v + 64) & 0xFF) >> 2) & 0x3F;
 					const Uint16 b = (((v + 128) & 0xFF) >> 3) & 0x1F;
-					row[y * stride + x] = (Uint16)((r << 11) | (g << 5) | b);
+					fb[y * stride + x] = (Uint16)((r << 11) | (g << 5) | b);
 				}
 			}
-			SDL_UnlockTexture(framebuffer);
+			UnlockFrameBuffer();
 		}
-
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-		SDL_RenderClear(renderer);
-		SDL_RenderTexture(renderer, framebuffer, nullptr, nullptr);
-		SDL_RenderPresent(renderer);
+		InvalidateScreen();
+		RefreshScreen(nullptr);
 		++frame;
 	}
 
-	SDL_DestroyTexture(framebuffer);
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
+	ShutdownVideoManager();
 	SDL_Quit();
 	return 0;
 }

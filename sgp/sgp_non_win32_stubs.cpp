@@ -54,25 +54,13 @@ ClipRectangle::ClipType ClipRectangle::Clip(int&, int&, unsigned int&, unsigned 
 ClipRectangle::ClipType ClipRectangle::Clip(int&, int&, int&, int&) { return NoClip; }
 void ClipRectangle::Set(int, int, int, int) {}
 
-// ---- video.cpp -------------------------------------------------------------
-void FatalError(const STR8, ...) {}
-void DirtyCursor() {}
-void PrintScreen() {}
-void RefreshScreen(void*) {}
-void InvalidateRegion(INT32, INT32, INT32, INT32) {}
-void InvalidateScreen() {}
-void InvalidateRegionEx(INT32, INT32, INT32, INT32, UINT32) {}
-void StartFrameBufferRender() {}
-void EndFrameBufferRender() {}
-void VideoCaptureToggle() {}
-void GetCurrentVideoSettings(UINT16*, UINT16*, UINT8*) {}
-BOOLEAN GetPrimaryRGBDistributionMasks(UINT32*, UINT32*, UINT32*) { return FALSE; }
-BOOLEAN Set8BPPPalette(SGPPaletteEntry*) { return FALSE; }
-BOOLEAN EraseMouseCursor() { return FALSE; }
-BOOLEAN SetMouseCursorProperties(INT16, INT16, UINT16, UINT16) { return FALSE; }
-BOOLEAN SetCurrentCursor(UINT16, UINT16, UINT16) { return FALSE; }
-PTR  LockMouseBuffer(UINT32*) { return nullptr; }
-void UnlockMouseBuffer() {}
+// (video.cpp stubs moved into sdl_video.cpp -- it now provides real
+// SDL3-backed implementations of FatalError, DirtyCursor, PrintScreen,
+// RefreshScreen, InvalidateRegion*, StartFrameBufferRender,
+// EndFrameBufferRender, VideoCaptureToggle, GetCurrentVideoSettings,
+// GetPrimaryRGBDistributionMasks, Set8BPPPalette, EraseMouseCursor,
+// SetMouseCursorProperties, SetCurrentCursor, LockMouseBuffer,
+// UnlockMouseBuffer, and the rest of video.h's public surface.)
 
 // ---- soundman.cpp (extends the existing non-Win32 stubs there) -------------
 UINT32 SoundLoadSample(STR)      { return 0xFFFFFFFFu; }

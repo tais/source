@@ -36,6 +36,8 @@ extern LPDIRECTDRAWSURFACE2 GetPrimarySurfaceObject(void);
 extern LPDIRECTDRAWSURFACE2 GetBackBufferObject(void);
 extern LPDIRECTDRAWSURFACE2 GetFrameBufferObject(void);
 extern LPDIRECTDRAWSURFACE2 GetMouseBufferObject(void);
+#else
+extern BOOLEAN				InitializeVideoManager(void);
 #endif
 
 extern void				 ShutdownVideoManager(void);
