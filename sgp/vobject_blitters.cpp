@@ -3335,7 +3335,42 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZ( UINT16 *pBuffer, UINT32 uiDestPitchBYTES
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
+#ifndef _WIN32
+	// Portable ETRLE row decoder, Z-tested with Z update.
+	// Command byte protocol: 0 = end of row; high bit set = skip
+	// (cmd & 0x7F) transparent pixels; otherwise the byte is the
+	// run-length and that many 8bpp palette indices follow, each
+	// promoted via p16BPPPalette[] into RGB565.
+	UINT16* dest = (UINT16*)DestPtr;
+	UINT16* zbuf = (UINT16*)ZPtr;
+	const UINT8* src = SrcPtr;
+	UINT32 rows = usHeight;
+	while (rows-- > 0) {
+		UINT16* rowDest = dest;
+		UINT16* rowZ    = zbuf;
+		for (;;) {
+			const UINT8 cmd = *src++;
+			if (cmd == 0) break;             // end of row
+			if (cmd & 0x80) {                // transparent skip
+				const UINT8 n = cmd & 0x7F;
+				rowDest += n;
+				rowZ    += n;
+				continue;
+			}
+			for (UINT8 i = 0; i < cmd; ++i) {
+				if (usZValue >= *rowZ) {
+					*rowZ   = usZValue;
+					*rowDest = p16BPPPalette[*src];
+				}
+				++src;
+				++rowDest;
+				++rowZ;
+			}
+		}
+		dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+	}
+#else
 	__asm {
 
 		mov		esi, SrcPtr
@@ -3456,7 +3491,39 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZNB( UINT16 *pBuffer, UINT32 uiDestPitchBYT
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
+#ifndef _WIN32
+	// Portable ETRLE row decoder, Z-tested but no Z update.
+	{
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		const UINT8* src = SrcPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					if (*rowZ <= usZValue) {
+						*rowDest = p16BPPPalette[*src];
+					}
+					++src;
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
+	}
+#else
 	__asm {
 
 		mov		esi, SrcPtr
@@ -10214,7 +10281,31 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent( UINT16 *pBuffer, UINT32 uiDestPitch
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
+#ifndef _WIN32
+	// Portable ETRLE row decoder, no Z-buffer. Workhorse UI sprite
+	// blit -- the legacy asm unrolled this 4-at-a-time but the
+	// compiler vectorizes a tight inner loop just fine.
+	{
+		UINT16* dest = (UINT16*)DestPtr;
+		const UINT8* src = SrcPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					rowDest += (cmd & 0x7F);
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					*rowDest++ = p16BPPPalette[*src++];
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+	}
+#else
 	__asm {
 
 		mov		esi, SrcPtr
