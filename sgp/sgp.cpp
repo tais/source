@@ -1429,11 +1429,10 @@ static bool CallGameLoop(bool wait)
 #include "types.h"
 
 // JA2 event-code constants. Re-declared locally rather than via
-// "input.h" because that pull triggers a large link cascade
-// (JA2_sgp.a -> input.cpp -> video globals -> Intro/Lua/etc.)
-// while the SDL3 replacements for those subsystems aren't built
-// yet. Phase 4 proper rewrites input.cpp on SDL3 and removes this
-// stub layer.
+// "input.h" because that pull cascades into video/vsurface/intro/
+// winfont APIs that are still _WIN32-gated. Once Phase 5 + Phase 8
+// + Phase 9 land SDL3-backed rewrites of those subsystems the
+// include can be restored and this stub layer deleted.
 #define KEY_DOWN                  0x0001
 #define KEY_UP                    0x0002
 #define LEFT_BUTTON_DOWN          0x0008

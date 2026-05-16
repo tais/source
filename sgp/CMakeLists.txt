@@ -32,4 +32,9 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_blitters.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vsurface.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/WinFont.cpp"
-PARENT_SCOPE)
+)
+if(NOT WIN32)
+  list(APPEND sgpSrc
+    "${CMAKE_CURRENT_SOURCE_DIR}/sgp_non_win32_globals.cpp")
+endif()
+set(sgpSrc ${sgpSrc} PARENT_SCOPE)

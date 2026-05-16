@@ -1,0 +1,52 @@
+// Non-Windows-only definitions for globals that live in subsystems
+// currently gated behind _WIN32 (video.cpp, sgp.cpp, Intro.cpp,
+// WinFont.cpp). Non-gated code references these by extern; without
+// definitions the link fails when the executable pulls JA2_sgp.
+//
+// As each Phase replaces its gated subsystem with an SDL3-backed
+// implementation, the corresponding globals get moved out of this
+// stub file and into the new implementation files.
+
+#ifndef _WIN32
+
+#include "types.h"
+
+// ---- sgp.cpp (Phase 3) -----------------------------------------------------
+BOOLEAN gfProgramIsRunning   = TRUE;
+BOOLEAN gfDontUseDDBlits     = FALSE;
+BOOLEAN gfApplicationActive  = TRUE;
+BOOLEAN gfGameInitialized    = FALSE;
+BOOLEAN gfIgnoreMessages     = FALSE;
+CHAR8   gzCommandLine[100]   = {0};
+CHAR8   gzErrorMsg[2048]     = {0};
+int     iWindowedMode        = 0;
+UINT32  guiMouseWheelMsg     = 0;
+bool    g_bUseXML_Structures = false;
+
+// ---- video.cpp (Phase 5) ---------------------------------------------------
+UINT32  CurrentSurface          = 0;
+INT32   giNumFrames             = 0;
+INT32   giMemUsedInSurfaces     = 0;
+BOOLEAN gfNextRefreshFullScreen = FALSE;
+// gpFrameData (the framebuffer) -- not defined here; Phase 5 will
+// allocate it when the SDL_Texture-backed renderer lands.
+
+// ---- vsurface.cpp (Phase 5) -----------------------------------------------
+// HVSURFACE is a typedef for SGPVSurface*; defined here as nullptr.
+struct SGPVSurface; // forward decl
+SGPVSurface* ghFrameBuffer = nullptr;
+
+// ---- Intro.cpp (Phase 8) ---------------------------------------------------
+UINT32  gbIntroScreenMode     = 0;
+BOOLEAN gfIntroScreenExit     = FALSE;
+UINT32  guiIntroExitScreen    = 0;
+
+// ---- WinFont.cpp (Phase 9) -------------------------------------------------
+INT32   TOOLTIP_IFONT         = -1;
+INT32   TOOLTIP_IFONT_BOLD    = -1;
+#ifndef MAX_WINFONTMAP
+#define MAX_WINFONTMAP 25
+#endif
+INT32   WinFontMap[MAX_WINFONTMAP] = {0};
+
+#endif // !_WIN32
