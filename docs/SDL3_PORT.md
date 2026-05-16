@@ -464,14 +464,26 @@ Strip Win32 dependencies out of the lowest layers of SGP so higher
 layers can be ported without dragging Windows in transitively. Replace
 compat-stub no-ops with real implementations.
 
+**Status update (2026-05-16):** the planned `FileMan.cpp` rewrite is
+substantially smaller than expected. FileMan.cpp **does not call any
+Win32 file API directly** — it routes everything through `vfs::*` /
+`getVFS()`, and bfVFS (`ext/VFS/src/Core/vfs_os_functions.cpp`) already
+has a complete POSIX branch (`scandir`, `getcwd`, `mkdir`, `remove`,
+`chdir`). The only macOS-specific gap was `getExecutablePath` using
+Linux's `readlink("/proc/self/exe")` — fixed by switching to
+`_NSGetExecutablePath` from `<mach-o/dyld.h>` under `__APPLE__`. The
+compat-layer `CreateFileA` / `ReadFile` / `WriteFile` / `HFILE` stubs
+in msvc_compat.h are **not actually exercised** by FileMan; they exist
+only so legacy unported translation units still compile.
+
 **Concrete files to port:**
 
-1. [sgp/FileMan.cpp](../sgp/FileMan.cpp) — replace `CreateFile` /
+1. ~~[sgp/FileMan.cpp](../sgp/FileMan.cpp) — replace `CreateFile` /
    `ReadFile` / `WriteFile` / `SetFilePointer` / `GetFileSize` /
    `WIN32_FIND_DATA` enumeration with `std::ifstream` /
-   `std::ofstream` / `std::filesystem`. Add case-insensitive path
-   resolution for asset directories (Stracciatella's logic is a good
-   reference).
+   `std::ofstream` / `std::filesystem`.~~ **Not needed** — already
+   abstracted through bfVFS, which has working POSIX paths. macOS
+   exec-path gap patched.
 2. [sgp/LibraryDataBase.cpp](../sgp/LibraryDataBase.cpp) — port the
    SLF archive reader. Endianness audit on the SLF header (it's
    little-endian on disk; should already work on LE platforms, but
