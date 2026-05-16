@@ -7,6 +7,13 @@
 *
 *********************************************************************************/
 	#include "builddefines.h"
+
+#ifdef _WIN32
+// FMOD-backed sound manager. The FMOD library (fmodvc.lib) is
+// Win32-only proprietary; Phase 7 replaces this entire file with an
+// SDL3_mixer (or SoLoud / miniaudio) implementation. Until then,
+// non-Windows builds run silent via the public-API stubs at the
+// bottom of this file.
 	#include <stdio.h>
 	#include <string.h>
 	#include "soundman.h"
@@ -1868,3 +1875,43 @@ void SoundLog(CHAR8 *strMessage)
 	} s_SoundLog;
 	SGP_LOG(s_SoundLog.id, vfs::String::widen(strMessage,strlen(strMessage)));
 }
+#else // !_WIN32
+
+// Non-Windows stubs covering every external symbol JA2 calls.
+// Public API surface comes from soundman.h. Phase 7 replaces with
+// real audio.
+#include "soundman.h"
+#include "types.h"
+
+void   SoundEnableSound(BOOLEAN) {}
+void * SoundGetDriverHandle(void) { return nullptr; }
+BOOLEAN InitializeSoundManager(void) { return TRUE; }
+void   ShutdownSoundManager(void) {}
+UINT32 SoundPlay(STR pFilename, SOUNDPARMS*) { return NO_SAMPLE; }
+UINT32 SoundPlayStreamedFile(STR, SOUNDPARMS*) { return NO_SAMPLE; }
+UINT32 SoundPlayRandom(STR, RANDOMPARMS*) { return NO_SAMPLE; }
+BOOLEAN SoundIsPlaying(UINT32) { return FALSE; }
+BOOLEAN SoundStop(UINT32) { return TRUE; }
+BOOLEAN SoundStopAll(void) { return TRUE; }
+BOOLEAN SoundStopAllRandom(void) { return TRUE; }
+void   SoundStopRandom(UINT32) {}
+BOOLEAN SoundSetVolume(UINT32, UINT32) { return TRUE; }
+BOOLEAN SoundSetPan(UINT32, UINT32) { return TRUE; }
+BOOLEAN SoundSetLoop(UINT32, UINT32) { return TRUE; }
+UINT32 SoundGetVolume(UINT32) { return 0; }
+UINT32 SoundGetLoop(UINT32) { return 0; }
+UINT32 SoundGetPan(UINT32) { return 0; }
+UINT32 SoundGetPosition(UINT32) { return 0; }
+BOOLEAN SoundSetMasterVolume(UINT32) { return TRUE; }
+UINT32 SoundGetMasterVolume(void) { return 0; }
+BOOLEAN SoundSetSpeechVolume(UINT32) { return TRUE; }
+UINT32 SoundGetSpeechVolume(void) { return 0; }
+BOOLEAN SoundServiceStreams(void) { return TRUE; }
+BOOLEAN SoundServiceRandom(void) { return TRUE; }
+UINT32 SoundGetPlayingTickCount(UINT32) { return 0; }
+void SoundPauseGame(BOOLEAN) {}
+void SoundStartFadeOut(UINT32, UINT32) {}
+void SoundStartFadeIn(UINT32, UINT32, UINT32) {}
+BOOLEAN SoundRemoveSampleFromCache(STR) { return TRUE; }
+
+#endif // _WIN32

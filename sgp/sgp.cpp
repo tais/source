@@ -114,7 +114,7 @@ extern UINT32		MemDebugCounter;
 	extern BOOL		bScreenModeCmdLine;
 
 extern	BOOLEAN		CheckIfGameCdromIsInCDromDrive();
-extern	void		QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
+extern	void		sdl_queue_event(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 
 // Prototype Declarations
 INT32 FAR PASCAL	WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam);
@@ -199,7 +199,7 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 	// ATE: This is for older win95 or NT 3.51 to get MOUSE_WHEEL Messages
 	//if ( Message == guiMouseWheelMsg )
 	//{
-	//	QueueEvent(MOUSE_WHEEL, wParam, lParam);
+	//	sdl_queue_event(MOUSE_WHEEL, wParam, lParam);
 	//	return( 0L );
 	//}
 
@@ -214,7 +214,7 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 /*dnl kick this out, because in input.sgp MouseHandler() hook has priority so it will process same event twice, someone force MouseHandler() hook to always return unhandled events status so what ever mouse event you process in WindowProcedure() be aware that this event is already occur in MouseHandler() (mouse clicks, move etc.) Probably this is done because when you lost focus even if you click back on window region this will not restore them, so need condition in MouseHandler to restore window focus
 //		case WM_MOUSEWHEEL:
 //			{
-//				QueueEvent(MOUSE_WHEEL, wParam, lParam);
+//				sdl_queue_event(MOUSE_WHEEL, wParam, lParam);
 //				break;
 //			}
 */		
@@ -1419,14 +1419,83 @@ static bool CallGameLoop(bool wait)
 
 
 #ifndef _WIN32
-// Phase 3 SDL3 entry point. Opens a window and runs a minimal event
-// loop until the user quits. Game-loop dispatch isn't wired up yet
-// because rendering (Phase 5), input fan-out into the JA2 queue
-// (Phase 4), and audio (Phase 7) are all gated out. This proves the
-// SDL3 dependency works end-to-end and gives the executable
-// something visible to do.
+// Phase 3 SDL3 entry point. Opens a window, runs an event loop that
+// pumps SDL events into JA2's QueueEvent path, and clears to a solid
+// colour each frame. Game-loop dispatch (GameLoop()) and framebuffer
+// presentation (Phase 5) are still TODO; this slice covers Phase 3
+// shell + Phase 4 input plumbing.
 #include <SDL3/SDL.h>
 #include <cstdio>
+#include "types.h"
+
+// JA2 input event codes. Re-declared locally instead of #include "input.h"
+// to avoid pulling JA2_sgp.a's heavy transitive deps (FMOD, Expat,
+// FatalError, ...) into the link surface before Phase 5/7 are done.
+// Next slice routes these into the real QueueEvent path once the
+// dependency graph is clean.
+#define JA2_KEY_DOWN              0x0001
+#define JA2_KEY_UP                0x0002
+#define JA2_LEFT_BUTTON_DOWN      0x0008
+#define JA2_LEFT_BUTTON_UP        0x0010
+#define JA2_RIGHT_BUTTON_DOWN     0x0080
+#define JA2_RIGHT_BUTTON_UP       0x0100
+#define JA2_MOUSE_POS             0x0400
+#define JA2_MOUSE_WHEEL_UP        0x0800
+#define JA2_MOUSE_WHEEL_DOWN      0x1000
+#define JA2_MIDDLE_BUTTON_DOWN    0x2000
+#define JA2_MIDDLE_BUTTON_UP      0x4000
+
+// Local mouse-position cache. Real path: input.cpp's g_sdl_mouse_x /
+// g_sdl_mouse_y globals -- wired up once link surface is clean.
+static INT16 g_sdl_mouse_x = 0;
+static INT16 g_sdl_mouse_y = 0;
+
+static void sdl_queue_event(UINT16 ev, UINT32 usParam, UINT32 uiParam)
+{
+	// Phase 4 next slice: forward to the real QueueEvent. For now,
+	// just trace -- proves the event mapping is right.
+	std::fprintf(stderr, "[sdl-input] ev=0x%04x usParam=%u uiParam=0x%08x\n",
+	             ev, usParam, uiParam);
+}
+
+// Pack mouse coords the same way the Win32 hook used to: y<<16 | x.
+static UINT32 pack_xy(int x, int y)
+{
+	return (UINT32)((y & 0xFFFF) << 16) | (UINT32)(x & 0xFFFF);
+}
+
+// Translate SDL_Scancode to JA2's persisted VK_* values. JA2 stores
+// these in savegames and config files, so we can't just hand SDL
+// scancodes through. Phase 4 expands this into a proper table built
+// from Utils/KeyMap.cpp; for now the small subset below is enough to
+// drive menus.
+static UINT16 sdl_to_vk(SDL_Scancode sc, SDL_Keycode key)
+{
+	switch (sc) {
+		case SDL_SCANCODE_ESCAPE: return 0x1B; // VK_ESCAPE
+		case SDL_SCANCODE_RETURN: return 0x0D; // VK_RETURN
+		case SDL_SCANCODE_SPACE:  return 0x20; // VK_SPACE
+		case SDL_SCANCODE_TAB:    return 0x09; // VK_TAB
+		case SDL_SCANCODE_BACKSPACE: return 0x08; // VK_BACK
+		case SDL_SCANCODE_LEFT:   return 0x25; // VK_LEFT
+		case SDL_SCANCODE_UP:     return 0x26; // VK_UP
+		case SDL_SCANCODE_RIGHT:  return 0x27; // VK_RIGHT
+		case SDL_SCANCODE_DOWN:   return 0x28; // VK_DOWN
+		case SDL_SCANCODE_LSHIFT: return 0xA0; // VK_LSHIFT
+		case SDL_SCANCODE_RSHIFT: return 0xA1; // VK_RSHIFT
+		case SDL_SCANCODE_LCTRL:  return 0xA2; // VK_LCONTROL
+		case SDL_SCANCODE_RCTRL:  return 0xA3; // VK_RCONTROL
+		case SDL_SCANCODE_LALT:   return 0xA4; // VK_LMENU (alt)
+		case SDL_SCANCODE_RALT:   return 0xA5; // VK_RMENU
+		default: break;
+	}
+	// ASCII printable: just hand the keycode (matches Win32 VK_* for
+	// alphanumerics).
+	if (key >= 0x20 && key < 0x7F) {
+		return (UINT16)(key >= 'a' && key <= 'z' ? key - 32 : key);
+	}
+	return 0;
+}
 
 int main(int /*argc*/, char** /*argv*/)
 {
@@ -1454,19 +1523,61 @@ int main(int /*argc*/, char** /*argv*/)
 	}
 
 	std::printf("JA2 SDL3 port -- window open. "
-	            "Game loop wiring lands in Phase 4/5. "
-	            "Close the window to exit.\n");
+	            "Input events route into QueueEvent. "
+	            "Close the window or press Esc to exit.\n");
 
 	bool running = true;
 	while (running) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_EVENT_QUIT) {
+			switch (event.type) {
+			case SDL_EVENT_QUIT:
 				running = false;
+				break;
+
+			case SDL_EVENT_KEY_DOWN: {
+				if (event.key.key == SDLK_ESCAPE) running = false;
+				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
+				if (vk) sdl_queue_event(JA2_KEY_DOWN, vk, 0);
+				break;
 			}
-			if (event.type == SDL_EVENT_KEY_DOWN &&
-			    event.key.key == SDLK_ESCAPE) {
-				running = false;
+			case SDL_EVENT_KEY_UP: {
+				UINT16 vk = sdl_to_vk(event.key.scancode, event.key.key);
+				if (vk) sdl_queue_event(JA2_KEY_UP, vk, 0);
+				break;
+			}
+
+			case SDL_EVENT_MOUSE_MOTION: {
+				g_sdl_mouse_x = (INT16)event.motion.x;
+				g_sdl_mouse_y = (INT16)event.motion.y;
+				sdl_queue_event(JA2_MOUSE_POS, 0,
+				           pack_xy((int)event.motion.x, (int)event.motion.y));
+				break;
+			}
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
+			case SDL_EVENT_MOUSE_BUTTON_UP: {
+				const bool down = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN;
+				const UINT32 xy = pack_xy((int)event.button.x, (int)event.button.y);
+				UINT16 ev = 0;
+				switch (event.button.button) {
+				case SDL_BUTTON_LEFT:   ev = down ? JA2_LEFT_BUTTON_DOWN   : JA2_LEFT_BUTTON_UP;   break;
+				case SDL_BUTTON_RIGHT:  ev = down ? JA2_RIGHT_BUTTON_DOWN  : JA2_RIGHT_BUTTON_UP;  break;
+				case SDL_BUTTON_MIDDLE: ev = down ? JA2_MIDDLE_BUTTON_DOWN : JA2_MIDDLE_BUTTON_UP; break;
+				// X1/X2: not in the local minimal table; map to middle.
+				case SDL_BUTTON_X1:
+				case SDL_BUTTON_X2:     ev = down ? JA2_MIDDLE_BUTTON_DOWN : JA2_MIDDLE_BUTTON_UP; break;
+				default: break;
+				}
+				if (ev) sdl_queue_event(ev, 0, xy);
+				break;
+			}
+			case SDL_EVENT_MOUSE_WHEEL: {
+				const UINT32 xy = pack_xy(g_sdl_mouse_x, g_sdl_mouse_y);
+				if (event.wheel.y > 0) sdl_queue_event(JA2_MOUSE_WHEEL_UP,   0, xy);
+				if (event.wheel.y < 0) sdl_queue_event(JA2_MOUSE_WHEEL_DOWN, 0, xy);
+				break;
+			}
+			default: break;
 			}
 		}
 		// Stand-in clear: solid dark background until Phase 5 wires
