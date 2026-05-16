@@ -227,9 +227,9 @@ void StringFromValue( STR16 str, INT32 iValue, UINT32 uiMax )
 	if( iValue < 0 )			//a blank string is determined by a negative value.
 		str[0] = '\0';
 	else if( (UINT32)iValue > uiMax )	//higher than max attribute value, so convert it to the max.
-		swprintf( str, L"%d", uiMax );
+		sgp_swprintf( str, 6, L"%d", uiMax );
 	else										//this is a valid static value, so convert it to a string.
-		swprintf( str, L"%d", iValue );
+		sgp_swprintf( str, 6, L"%d", iValue );
 }
 
 BOOLEAN CreateAIViewer()

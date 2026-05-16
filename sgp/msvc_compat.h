@@ -234,6 +234,23 @@ inline DWORD GetFileSize(HANDLE, LPDWORD) { return 0xFFFFFFFFu; }
 inline DWORD GetFileAttributesA(const char*) { return 0xFFFFFFFFu; }
 #define GetFileAttributes GetFileAttributesA
 
+typedef int HFILE;
+#ifndef HFILE_ERROR
+#define HFILE_ERROR ((HFILE)-1)
+#endif
+#ifndef SEM_FAILCRITICALERRORS
+#define SEM_FAILCRITICALERRORS 0x0001
+#define SEM_NOGPFAULTERRORBOX  0x0002
+#define SEM_NOOPENFILEERRORBOX 0x8000
+#endif
+inline UINT SetErrorMode(UINT) { return 0; }
+
+// Win32 wsprintf/wsprintfA are narrow printf-into-buffer with no
+// length check. JA2 only uses the narrow form for debug strings, so
+// alias to sprintf. (The wide form wsprintfW is unused.)
+#define wsprintfA sprintf
+#define wsprintf  sprintf
+
 // Win32 virtual-memory APIs used by MemMan.cpp's locked-allocator
 // path. Stubbed to plain malloc/free -- the locking semantics aren't
 // meaningful on POSIX in this context.
