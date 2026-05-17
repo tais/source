@@ -7148,95 +7148,48 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZ( UINT16 *pBuffer, UINT32 uiDestPitchBYT
 	// Every row has zero byte on its end.
 
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr // Load source pixel data to ESI, starting at the place SrcPtr is pointing to.
-		mov		edi, DestPtr // Load destination buffer to EDI, starting at the place DestPtr is pointing to.
-		mov		edx, p16BPPPalette // Load 16 bit palette to EDX
-		xor		eax, eax // Zero EAX
-		mov		ebx, ZPtr // Load zbuffer to EBX
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi] // Read a byte from source and load it to CL. CL is the least signifigant byte of CX, which is the least significant word of ECX
-		inc		esi // Go forward one byte in source data
-		or		cl, cl
-		js		BlitTransparent // if highest bit is 1 -> we have transparent pixels
-		jz		BlitDoneLine // Zero means end of a row
-
-//BlitNonTransLoop:
-
-		xor		eax, eax
-
-BlitNTL4:
-
-		// Do not draw pixel if its z value is less than Z-buffer
-		mov		ax, usZValue // Move Z value we want to compare to, to EAX
-		cmp		ax, [ebx] // Compare against the Z-buffer
-		jb		BlitNTL5
-
-		// CHECK FOR OUTLINE, BLIT DIFFERENTLY IF WE WANT IT TO!
-		mov		al, [esi] // Load byte from source into AL
-		cmp		al, 254
-		jne		BlitNTL6
-
-		//		DO OUTLINE
-		//		ONLY IF WE WANT IT!
-		mov		al, fDoOutline; // Load BOOLEAN fDoOutline to AL
-		cmp		al,	1 // Check if it's TRUE
-		jne		BlitNTL5 // Jump if FALSE
-
-		mov		ax, s16BPPColor // Load s16BPPColor value to AX
-		mov		[edi], ax // Load color to destination
-		jmp		BlitNTL5
-
-BlitNTL6:
-
-		//Donot write to z-buffer
-		mov		[ebx], ax // Original comment says to not write to zBuffer. This writes gibberish there so is most likely wrong.
-
-		xor		ah, ah
-		mov		al, [esi] // Load byte from source into AL
-		mov		ax, [edx+eax*2] // Load value from address EDX+EAX*2. EDX holds the 16 bit palette.
-		mov		[edi], ax // Load AX value into destination buffer, ie. color the destination pixel
-
-BlitNTL5:
-		inc		esi // Move a byte forward in source data
-		inc		edi // Move a byte forward in destination data. This is duplicated below so we move two bytes forward in destination data due to it being 16 bit.
-		inc		ebx // Same thing with Z-buffer.
-		inc		edi
-		inc		ebx
-
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch // Jump to the next blit operation
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add		ecx, ecx
-		add		edi, ecx // Add value in ECX to destination buffer
-		add		ebx, ecx // Add value in ECX to Z-buffer
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight // Decrement Height by 1. We're going through the blitting source data from the top, one row at a time
-		jz		BlitDone // If Height is 0, we're done blitting.
-		add		edi, LineSkip // Skip the rest of the current destination line, so we start at the correct spot for the next line blit.
-		add		ebx, LineSkip // Same for Z-buffer.
-		jmp		BlitDispatch // Jump to the next blit operation
-
-
-BlitDone:
+	// No-clip ETRLE Z-tested (Z update) + outline marker. Same shape
+	// as OutlineZClip without the clip path. As with that variant,
+	// the legacy asm corrupts the z-write -- restored to write the
+	// obvious usZValue.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					const UINT8 v = *src++;
+					if (usZValue >= *rowZ) {
+						if (v == 254) {
+							if (fDoOutline) {
+								*rowDest = (UINT16)s16BPPColor;
+							}
+						} else {
+							*rowZ    = usZValue;
+							*rowDest = p16BPPPalette[v];
+						}
+					}
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
 	}
-#endif
 
 	return(TRUE);
 
@@ -7281,116 +7234,60 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZPixelateObscured( UINT16 *pBuffer, UINT3
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 	uiLineFlag=(iTempY&1);
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-		xor		eax, eax
-
-BlitNTL4:
-
-		mov		ax, usZValue
-		cmp		ax, [ebx]
-		jbe		BlitNTL8
-
-		// Write it now!
-		jmp BlitNTL7
-
-BlitNTL8:
-
-		test	uiLineFlag, 1
-		jz		BlitNTL6
-
-		test	edi, 2
-		jz		BlitNTL5
-		jmp		BlitNTL9
-
-
-BlitNTL6:
-
-		test	edi, 2
-		jnz		BlitNTL5
-
-BlitNTL7:
-
-		mov		[ebx], ax
-
-BlitNTL9:
-
-		// CHECK FOR OUTLINE, BLIT DIFFERENTLY IF WE WANT IT TO!
-		mov		al, [esi]
-		cmp		al, 254
-		jne		BlitNTL12
-
-		//		DO OUTLINE
-		//		ONLY IF WE WANT IT!
-		mov		al, fDoOutline;
-		cmp		al,	1
-		jne		BlitNTL5
-
-		mov		ax, s16BPPColor
-		mov		[edi], ax
-		jmp		BlitNTL5
-
-BlitNTL12:
-
-		xor		ah, ah
-		mov		al, [esi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL5:
-		inc		esi
-		inc		edi
-		inc		ebx
-		inc		edi
-		inc		ebx
-
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		add		ebx, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-		xor		uiLineFlag, 1
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// No-clip ETRLE with outline marker + pixelate-when-obscured.
+	// NB the legacy asm uses 'jbe' for the obscured test (so equal Z
+	// counts as obscured), unlike the clipped variant which uses 'jb'
+	// (equal counts as front-facing). Preserved each variant's quirk.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		UINT32 lineFlag = uiLineFlag;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			UINT32 col = 0;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					col     += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i, ++col) {
+					const UINT8 v = *src++;
+					const bool frontFacing = (usZValue > *rowZ);
+					bool render = true;
+					if (frontFacing) {
+						*rowZ = usZValue;
+					} else {
+						const UINT32 destParity =
+							((UINT32)(uintptr_t)rowDest >> 1) & 1u;
+						render = (lineFlag == destParity);
+					}
+					if (render) {
+						if (v == 254) {
+							if (fDoOutline) {
+								*rowDest = (UINT16)s16BPPColor;
+							}
+						} else {
+							*rowDest = p16BPPPalette[v];
+						}
+					}
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+			lineFlag ^= 1;
+		}
+		(void)LineSkip;
 	}
-#endif
 
 	return(TRUE);
 
@@ -7434,94 +7331,45 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineZNB( UINT16 *pBuffer, UINT32 uiDestPitchB
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, p16BPPPalette
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-		xor		eax, eax
-
-BlitNTL4:
-
-		mov		ax, usZValue
-		cmp		ax, [ebx]
-		jb		BlitNTL5
-
-		// CHECK FOR OUTLINE, BLIT DIFFERENTLY IF WE WANT IT TO!
-		mov		al, [esi]
-		cmp		al, 254
-		jne		BlitNTL6
-
-		//		DO OUTLINE
-		//		ONLY IF WE WANT IT!
-		mov		al, fDoOutline;
-		cmp		al,	1
-		jne		BlitNTL5
-
-		mov		ax, s16BPPColor
-		mov		[edi], ax
-		jmp		BlitNTL5
-
-BlitNTL6:
-
-		//Donot write to z-buffer
-		//mov		[ebx], ax
-
-		xor		ah, ah
-		mov		al, [esi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL5:
-		inc		esi
-		inc		edi
-		inc		ebx
-		inc		edi
-		inc		ebx
-
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		add		ebx, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// No-clip ETRLE Z-tested but no Z update (NB = no buffer update),
+	// with outline marker.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					const UINT8 v = *src++;
+					if (usZValue >= *rowZ) {
+						if (v == 254) {
+							if (fDoOutline) {
+								*rowDest = (UINT16)s16BPPColor;
+							}
+						} else {
+							*rowDest = p16BPPPalette[v];
+						}
+					}
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
 	}
-#endif
 
 	return(TRUE);
 
