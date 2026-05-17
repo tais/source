@@ -20,6 +20,7 @@
 #include "types.h"
 #include "video.h"
 #include "vsurface.h"
+#include "himage.h"
 #include "DEBUG.H"
 
 #include <SDL3/SDL.h>
@@ -133,6 +134,27 @@ BOOLEAN InitializeVideoManager(void)
 		return FALSE;
 	}
 
+	// Initialize the RGB565 mask + shift globals from himage.cpp. The
+	// legacy code queried DirectDraw for these and JA2's color /
+	// palette / shade-table code reads them in Get16BPPColor to
+	// convert 8-bit-per-channel RGB triples into RGB565 pixels:
+	//     r16 = (r << gusRedShift)   & gusRedMask
+	//     g16 = (g << gusGreenShift) & gusGreenMask
+	//     b16 = (b << gusBlueShift)  & gusBlueMask
+	// For RGB565 (R in bits 15-11, G in 10-5, B in 4-0), an 8-bit r
+	// becomes 5-bit r by shifting left 8 (then masking with 0xF800);
+	// 8-bit g becomes 6-bit g shifted left 3 (masked 0x07E0); 8-bit
+	// b becomes 5-bit b shifted right 3 (masked 0x001F).
+	// Without these, every Get16BPPColor() returned 0 (or close to
+	// 0), making the rendered screen nearly all black or, with masks
+	// alone, blue-tinted.
+	gusRedMask   = 0xF800;
+	gusGreenMask = 0x07E0;
+	gusBlueMask  = 0x001F;
+	gusRedShift   = 8;
+	gusGreenShift = 3;
+	gusBlueShift  = -3;
+
 	DirtyFullScreen();
 	guiFrameBufferState = BUFFER_READY;
 	guiMouseBufferState = BUFFER_DISABLED;
@@ -234,13 +256,17 @@ void RefreshScreen(void* /*dummy*/)
 
 	if (gRefreshOverride) gRefreshOverride();
 
-	if (gDirtyL < gDirtyR && gDirtyT < gDirtyB) {
-		SDL_Rect rc { gDirtyL, gDirtyT, gDirtyR - gDirtyL, gDirtyB - gDirtyT };
-		const UINT16* src = gFrameBuffer + gDirtyT * SCREEN_WIDTH + gDirtyL;
-		SDL_UpdateTexture(gFrameTex, &rc, src,
-		                  SCREEN_WIDTH * sizeof(UINT16));
-		gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
-	}
+	// Always upload the entire framebuffer. The legacy game only
+	// invalidates incremental dirty rects (a popup, a tooltip), but
+	// the streaming texture's initial state is undefined and the
+	// renderer doesn't preserve our last-frame content across the
+	// non-dirty parts -- without a full upload, anything that was
+	// drawn before the first dirty rect stays invisible. Phase 6b
+	// can refine this to a back-buffer-mirroring scheme once we
+	// switch to RGBA8888.
+	SDL_UpdateTexture(gFrameTex, nullptr, gFrameBuffer,
+	                  SCREEN_WIDTH * sizeof(UINT16));
+	gDirtyL = gDirtyT = gDirtyR = gDirtyB = 0;
 
 	SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(gRenderer);
