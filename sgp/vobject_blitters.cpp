@@ -19,12 +19,6 @@ static UINT8 g_AlphaTimesValueCache[256][256];
 static const unsigned short maxChar = 0xff;
 unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, unsigned int alpha)
 {
-#ifndef _WIN32
-	// Portable C implementation. The Win32 inline-asm version below
-	// did the same math in fixed-point assembly; on macOS that block
-	// would never compile (clang has no __asm) and the function used
-	// to return 0 unconditionally, which is why every alpha-blended
-	// UI element rendered as black on the SDL3 build.
 	const unsigned int oldR = (rgb565Old >> 11) & 0x1F;
 	const unsigned int oldG = (rgb565Old >> 5)  & 0x3F;
 	const unsigned int oldB = (rgb565Old)       & 0x1F;
@@ -37,104 +31,6 @@ unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, un
 	const unsigned int outG = (oldG * ia + newG * a + 128) / 255;
 	const unsigned int outB = (oldB * ia + newB * a + 128) / 255;
 	return (unsigned short)((outR << 11) | (outG << 5) | outB);
-#else
-	unsigned short value = 0;
-	float alphaF;
-	unsigned short oldR, oldG, oldB, newR, newG, newB, outR, outG, outB;
-	unsigned short alphaC = (unsigned short)alpha;
-	__asm {
-		xor		ebx, ebx
-		xor		ecx, ecx
-		mov		ecx, rgb565Old
-		xor		eax, eax
-		xor		edx, edx
-		mov		ax, cx
-		shr		ax, 11
-		xor ah, ah
-		mov		oldR, ax
-		xor		edx, edx
-		mov		ax, cx
-		and		ax, 0x7e0
-		shr		ax, 5
-		xor ah, ah
-		mov		oldG, ax
-		xor		edx, edx
-		mov		ax, cx
-		and		ax, 0x1f
-		xor ah, ah
-		mov		oldB, ax
-		xor		ebx, ebx
-		xor		ecx, ecx
-		mov		ecx, rgb565New
-		xor		eax, eax
-		xor		edx, edx
-		mov		ax, cx
-		shr		ax, 11
-		xor ah, ah
-		mov		newR, ax
-		xor		edx, edx
-		mov		ax, cx
-		and		ax, 0x7e0
-		shr		ax, 5
-		xor ah, ah
-		mov		newG, ax
-		xor		edx, edx
-		mov		ax, cx
-		and		ax, 0x1f
-		xor ah, ah
-		mov		newB, ax
-		fld1
-		fild	alphaC
-		fild	maxChar
-		fdiv
-		fst		alphaF
-		fsub
-		fild	oldR
-		fmul
-		fild	newR
-		fld		alphaF
-		fmul
-		fadd
-		fistp	outR
-		fld1
-		fild	alphaC
-		fild	maxChar
-		fdiv
-		fst		alphaF
-		fsub
-		fild	oldG
-		fmul
-		fild	newG
-		fld		alphaF
-		fmul
-		fadd
-		fistp	outG
-		fld1
-		fild	alphaC
-		fild	maxChar
-		fdiv
-		fst		alphaF
-		fsub
-		fild	oldB
-		fmul
-		fild	newB
-		fld		alphaF
-		fmul
-		fadd
-		fistp	outB
-		xor		eax, eax
-		xor		ebx, ebx
-		mov		ax, outB
-		mov		bx, outG
-		shl		bx, 5
-		add		eax, ebx
-		mov		bx, outR
-		shl		bx, 11
-		add		eax, ebx
-		mov		value, ax
-	}
-	return value;
-#endif
 }
 
 class InitAlphaTimesValueCache
@@ -1541,59 +1437,14 @@ UINT32 uiLineSkipDest, uiLineSkipSrc;
 	uiLineSkipDest=uiDestPitch-(uiWidth*2);
 	uiLineSkipSrc=uiSrcPitch-(uiWidth*2);
 
-#ifdef _WIN32
-__asm {
-	mov		esi, pSrcPtr
-	mov		edi, pDestPtr
-	mov		ebx, uiHeight
-	cld
-
-	mov		ecx, uiWidth
-	test	ecx, 1
-	jz		BlitDwords
-
-BlitNewLine:
-
-	mov		ecx, uiWidth
-	shr		ecx, 1
-	movsw
-
-//BlitNL2:
-
-	rep		movsd
-
-	add		edi, uiLineSkipDest
-	add		esi, uiLineSkipSrc
-	dec		ebx
-	jnz		BlitNewLine
-
-	jmp		BlitDone
-
-
-BlitDwords:
-	mov		ecx, uiWidth
-	shr		ecx, 1
-	rep		movsd
-
-	add		edi, uiLineSkipDest
-	add		esi, uiLineSkipSrc
-	dec		ebx
-	jnz		BlitDwords
-
-BlitDone:
-
-	}
-#else
-	// Portable C path: row-by-row memcpy. The asm above did the same
-	// thing with movsd/movsw; this is simpler and almost as fast given
-	// modern memcpy() is vectorized.
+	// Portable C path: row-by-row memcpy. Modern memcpy() is
+	// vectorized; the original asm unrolled movsw / movsd by hand.
 	for (UINT32 y = 0; y < uiHeight; ++y)
 	{
 		std::memcpy(pDestPtr, pSrcPtr, (size_t)uiWidth * 2);
 		pDestPtr = (UINT16*)((UINT8*)pDestPtr + uiDestPitch);
 		pSrcPtr  = (UINT16*)((UINT8*)pSrcPtr  + uiSrcPitch);
 	}
-#endif
 
 	return(TRUE);
 }
