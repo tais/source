@@ -32,7 +32,6 @@ set(sgpSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/STCI.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/stringicmp.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/timer.cpp"
-# video.cpp / vsurface.cpp replaced by sdl_video.cpp / sdl_vsurface.cpp.
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/vobject_blitters.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/WinFont.cpp"
