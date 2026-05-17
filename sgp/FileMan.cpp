@@ -28,10 +28,6 @@
 	#include <stdlib.h>
 	#include <stdio.h>
 
-#ifdef _WIN32
-	#include "windows.h"
-	#include "io.h"
-#endif
 	#include "FileMan.h"
 	#include "MemMan.h"
 	#include "DEBUG.H"
