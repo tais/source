@@ -27,7 +27,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 3 | SDL3 window + event loop, drop WinMain | 🟡 Started — SDL3 wired into CMake, minimal window+event-loop main() on non-Windows. JA2 game loop not yet dispatched; SDL event translation lives in main() but routes to a local debug stub instead of the real `QueueEvent`. |
 | 4 | SDL3 input, drop DirectInput / Win32 hooks | Not started |
 | 5 | SDL3 video (RGB565 transitional), retire DirectDraw | 🟡 Started — RGB565 SDL_Texture upload path working with a test pattern in sgp.cpp's main(). Needs the JA2 framebuffer wired in. |
-| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | Not started |
+| 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | 🟡 Started — all inline x86 asm in `sgp/vobject_blitters.cpp` ported to portable C (~30 blitter variants); RGB565 still the internal format. RGBA8888 conversion + palette LUT regen pending. |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | Not started |
 | 8 | Cinematics — libsmacker, decide on Bink | Not started |
 | 9 | Fonts — stb_truetype, drop GDI | Not started |
@@ -837,6 +837,28 @@ pipeline. End-to-end at least one battle playable.
 Now that everything routes through SDL, swap the internal pixel
 format.
 
+### 6a. Inline-asm retirement (✅ done)
+
+All inline x86 `__asm { }` blocks in `sgp/vobject_blitters.cpp` were
+replaced with portable C ETRLE decoders. The file shrank from ~15057
+lines to ~8100, and `grep __asm sgp/vobject_blitters.cpp` returns
+zero hits. Each port is its own commit so it can be diff'd against
+the legacy asm for review. Covered variants include the basic
+`Transparent` / `TransZ` / `TransZNB`, the `Outline` family (8
+variants, with the `254 == outline marker` semantics preserved), the
+`Intensity` family (6 variants), `MonoShadow`, `PixelateRectWithColor`,
+`Shadow*`, `Half` / `HalfRect`, `Mask` (which the legacy asm never
+actually used as a mask — dead-code preserved), and the
+`PixelateObscured` variants (front-facing pixels render normally and
+update Z; obscured pixels render only on a checkerboard mask, no Z
+update).
+
+The 8bpp→16bpp palette LUT (`p16BPPPalette`) is still RGB565 and the
+Z-buffer is still `UINT16`. Pixel-format conversion to RGBA8888 is
+the remaining Phase 6 work.
+
+### 6b. RGBA8888 conversion (pending)
+
 1. Change `PIXEL_DEPTH` in [Ja2/local.h](../Ja2/local.h) from 16 to 32.
 2. Wide-rename `UINT16* pBuffer` → `UINT32* pBuffer` across every
    blitter and caller. Adjust pitch math (bytes-per-pixel doubles).
@@ -845,17 +867,14 @@ format.
    fade-to-white, translucency, and night-vision tables in
    [sgp/shading.cpp](../sgp/shading.cpp) all need RGBA8888
    equivalents.
-4. Rewrite every blitter in
-   [sgp/vobject_blitters.cpp](../sgp/vobject_blitters.cpp) — there
-   are dozens of variants (TransZ, TransZNB, TransZClip,
-   TransZTranslucent, MonoShadow, Pixelate, …). Drop the inline asm.
-5. Replace the inline-asm `blendWithAlpha` and every other RGB565
-   bit-math site with portable C (consider SDL_SIMD intrinsics).
-6. Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` or
+4. Rewrite the portable-C blitter inner loops to operate on `UINT32`
+   pixels; replace `blendWithAlpha` and `IntensityTable` with portable
+   per-channel arithmetic (consider SDL_SIMD intrinsics).
+5. Update SDL texture format to `SDL_PIXELFORMAT_ARGB8888` or
    matching endianness.
-7. Update saveable surfaces / screenshot writers
+6. Update saveable surfaces / screenshot writers
    ([sgp/video.cpp](../sgp/video.cpp) TGA path).
-8. Z-buffer stays `UINT16` (it's a depth value, not a color).
+7. Z-buffer stays `UINT16` (it's a depth value, not a color).
 
 **Risk**: this is the phase where game-rendering regressions hide.
 Plan golden-image regression testing — render a known scene under
