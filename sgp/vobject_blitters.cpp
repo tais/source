@@ -6418,30 +6418,16 @@ UINT16 *DestPtr;
 	CHECKF(width >=1);
 	CHECKF(height >=1);
 
-#ifdef _WIN32
-	__asm {
-		mov		esi, OFFSET ShadeTable
-		mov		edi, DestPtr
-		xor		eax, eax
-		mov		ebx, LineSkip
-		mov		edx, height
-
-BlitNewLine:
-		mov		ecx, width
-
-BlitLine:
-		mov		ax, [edi]
-		mov		ax, [esi+eax*2]
-		mov		[edi], ax
-		add		edi, 2
-		dec		ecx
-		jnz		BlitLine
-
-		add		edi, ebx
-		dec		edx
-		jnz		BlitNewLine
-}
-#endif
+	{
+		UINT16* rowDest = DestPtr;
+		for (INT32 y = 0; y < height; ++y) {
+			for (INT32 x = 0; x < width; ++x) {
+				rowDest[x] = ShadeTable[rowDest[x]];
+			}
+			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
+	}
 
 	return(TRUE);
 }
@@ -6488,30 +6474,16 @@ UINT16 *DestPtr;
 	CHECKF(width >=1);
 	CHECKF(height >=1);
 
-#ifdef _WIN32
-	__asm {
-		mov		esi, OFFSET IntensityTable
-		mov		edi, DestPtr
-		xor		eax, eax
-		mov		ebx, LineSkip
-		mov		edx, height
-
-BlitNewLine:
-		mov		ecx, width
-
-BlitLine:
-		mov		ax, [edi]
-		mov		ax, [esi+eax*2]
-		mov		[edi], ax
-		add		edi, 2
-		dec		ecx
-		jnz		BlitLine
-
-		add		edi, ebx
-		dec		edx
-		jnz		BlitNewLine
-}
-#endif
+	{
+		UINT16* rowDest = DestPtr;
+		for (INT32 y = 0; y < height; ++y) {
+			for (INT32 x = 0; x < width; ++x) {
+				rowDest[x] = IntensityTable[rowDest[x]];
+			}
+			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
+		}
+		(void)LineSkip;
+	}
 
 	return(TRUE);
 }
