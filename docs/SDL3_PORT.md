@@ -802,12 +802,26 @@ What landed:
      all four Z/clip combinations)
    - `TransZ{,NB,Clip,NBClip}Translucent` (50% lo-bit-strip blend,
      all four Z/clip combinations)
+   - `TransZ{,NB,Clip,NBClip}Pixelate` + `TransZPixelateObscured`
+     (checkerboard pattern, all four Z/clip combinations +
+      occluded variant)
+   - `TransZNBColor`, `TransZNBClipColor` (silhouette tint)
+   - `Blt16BPPDataTo16BPPBufferTransZClip` (8bpp ETRLE despite name)
+   - `Blt16BPPDataTo16BPPBufferTransparentClip` (true 16bpp ETRLE,
+     2 bytes per opaque pixel)
+   - `TransShadowAlpha`, `TransShadowZAlpha`, `TransShadowZNBAlpha`
+     (parallel alpha-mask stream + blendWithAlpha per pixel)
+   - `TransShadowZNBObscured` (in-front normal + obscured
+     checkerboard silhouette)
+   - Residual `#ifdef _WIN32` dropped from `blendWithAlpha` and
+     `Blt16BPPTo16BPP` (toehold cleanup).
 
-   ~52 inline-asm blocks remain (Pixelate, Color, TransShadowAlpha,
-   Obscured, 16BPPData clip variants, Blt16BPPTo16BPP cleanup of
-   the residual #ifdef left in place by the Phase 6 toehold). The
-   pattern is fully mechanical now -- each is the same ETRLE row
-   decoder skeleton with different per-pixel logic + a Z-test
+   ~38 inline-asm blocks remain (TransShadowZNBObscuredTest /
+   TransShadowZNBObscuredAlpha / TransShadowZNBObscuredClip /
+   TransShadowZNBObscuredClipAlpha variants, the clip-Alpha variants
+   for TransShadow + TransShadowZ + TransShadowZNB, and a few
+   16BPPData siblings). Pattern is fully mechanical now -- each is
+   the ETRLE row decoder with different per-pixel logic + a Z-test
    variant; future sessions can crank through them.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
