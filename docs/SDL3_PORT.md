@@ -943,32 +943,45 @@ the SDL3 main loop. Key fixes during the first run-through:
 
 What still isn't right (next session):
 
-- **Black window in practice**. A debug fill pattern confirmed the
-  upload/present pipeline works end-to-end (red+green checker showed
-  up reliably; ~890k of 1.05M framebuffer pixels were non-zero
-  during init, so JA2's renderer IS writing). But the cleaned-up
-  binary shows a fully black window. Suspicion: either the
-  framebuffer-to-texture upload misses the right surface (we route
-  `LockFrameBuffer` / `LockBackBuffer` / `LockPrimarySurface` to the
-  same `gFrameBuffer` heap buffer, which might not be where the
-  game actually draws once it's past the loading screen — back vs.
-  primary distinction needs auditing in
-  [sgp/sdl_vsurface.cpp](../sgp/sdl_vsurface.cpp)), or
-  `RefreshScreen` is being called without a valid dirty rect during
-  the steady-state.
-- **macOS "broken application" crash report when closing via the red
-  X**. The `SDL_EVENT_WINDOW_CLOSE_REQUESTED` path returns true and
-  flips `gfProgramIsRunning` — but something on the way to `exit(0)`
-  (most likely in `SGPExit()` registered via `atexit`, or in the
-  timer-thread `NotifyThreadMain` which races against shutdown) is
-  hitting UB. Add a clean shutdown sequence that joins the timer
-  thread, calls `ShutdownVideoManager`, and only then returns from
-  `main()`.
+- **Black window in practice** (resolved 2026-05-17). The two
+  culprits turned out to be (a) `gusRedMask`/`gusGreenMask`/
+  `gusBlueMask` plus `gusRedShift`/`gusGreenShift`/`gusBlueShift`
+  in himage.cpp were declared but never assigned, so every
+  `Get16BPPColor()` returned ~0 (black) or, with masks-only,
+  blue-tinted; (b) `RefreshScreen` only uploaded the legacy
+  `InvalidateRegion` dirty rect, but the streaming SDL3 texture's
+  initial state is undefined so anything drawn before the first
+  dirty rect stayed invisible. Both fixed in
+  [sgp/sdl_video.cpp](../sgp/sdl_video.cpp) (commit cceda682).
+  Main menu now renders.
+- **Screen-transition leftovers**. A single leftover character from
+  the InitScreen state-0 version text (`mprintf(10, 10, ...)`) is
+  still visible in the top-left after the main menu loads, and the
+  JA2 1.13 logo on the main menu shows an opaque black rectangle
+  around the letters where it should be transparent (the waving
+  flag should show through between the letters). Both look like
+  the same underlying problem: the legacy DirectDraw double-buffer
+  flip pattern gave each frame a fresh back buffer, and the SDL3
+  single-buffer port accumulates whatever the previous frame left
+  in `gFrameBuffer`. The fix probably involves either clearing
+  `gFrameBuffer` on a specific transition signal (e.g. when
+  `InvalidateScreen` fires AND the current screen id has changed),
+  or honouring `BACKBUFFER` separately and copying it into the
+  frame buffer on present.
+- **macOS "broken application" crash report when closing via the
+  red X**. The `SDL_EVENT_WINDOW_CLOSE_REQUESTED` path returns true
+  and flips `gfProgramIsRunning` — but something on the way to
+  `exit(0)` (most likely in `SGPExit()` registered via `atexit`, or
+  in the timer-thread `NotifyThreadMain` which races against
+  shutdown) is hitting UB. Add a clean shutdown sequence that joins
+  the timer thread, calls `ShutdownVideoManager`, and only then
+  returns from `main()`.
 - **Input not visibly wired**. `sdl_input.cpp` translates SDL events
   and pushes them into JA2's queue via `QueueEvent`, but it's
   unverified that the legacy mouse system actually consumes them.
-  Probably needs a tracing pass once the render side shows
-  something.
+  Pick up here once the screen-transition artifacts above are
+  resolved -- without a clean menu it's hard to confirm a click
+  actually hit the "New Game" hotspot.
 
 ---
 
