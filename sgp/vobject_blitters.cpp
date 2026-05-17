@@ -6730,45 +6730,20 @@ BOOLEAN Blt8BPPDataTo16BPPBufferFullTransparent( HVOBJECT hDestVObject, HVOBJECT
 	pDest = pDest + uiDestStart;
 	pSrc =	pSrc + uiSrcStart;
 
-#ifdef _WIN32
-	__asm {
-		mov		esi, pSrc						// pointer to current line start address in source
-		mov		edi, pDest					// pointer to current line start address in destination
-		mov		ecx, uiNumLines			// line counter (goes top to bottom)
-		mov		edx, p16BPPPalette
-
-		mov		ebx, uiLineSize			// column counter (goes right to left)
-		dec		ebx
-
-ReadMask:
-		mov		ax, [edi+ebx*2]
-		cmp		ax, us16BPPDestTransColor
-		je		NextColumn
-		xor		eax, eax						// clear out the top 24 bits
-		mov		al, [esi+ebx]
-		cmp		al, maskcolor
-		je		NextColumn
-
-		shl		eax, 1							// make it into a word index
-		mov		ax, [edx+eax]				// get 16-bit version of 8-bit pixel
-		mov		[edi+ebx*2], ax
-
-NextColumn:
-		dec		ebx									// decrement column counter
-		jns		ReadMask						// loop until one line is done
-
-		dec		ecx									// check line counter
-		jz		DoneBlit						// done blitting, exit
-
-		add		esi, uiSrcPitch			// move line pointers down one line
-		add		edi, uiDestPitch
-		mov		ebx, uiLineSize			// column counter (goes right to left)
-		dec		ebx
-		jmp		ReadMask						// back into blitting on next line
-
-DoneBlit:											// finished blit
+	// Portable FullTransparent: skip if dest is its transparent
+	// colour OR if src is the mask colour (the palette index that
+	// resolves to src's transparent RGB565).
+	{
+		for (UINT32 y = 0; y < uiNumLines; ++y) {
+			for (UINT32 x = 0; x < uiLineSize; ++x) {
+				if (pDest[x] == us16BPPDestTransColor) continue;
+				if (pSrc[x]  == maskcolor)            continue;
+				pDest[x] = p16BPPPalette[pSrc[x]];
+			}
+			pSrc  += uiSrcPitch;   // pSrc is UINT8*
+			pDest = (UINT16*)((UINT8*)pDest + uiDestPitch);
 		}
-#endif
+	}
 
 	ReleaseVideoObjectBuffer( hSrcVObject );
 	ReleaseVideoObjectBuffer( hDestVObject );
