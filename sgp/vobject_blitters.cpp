@@ -8045,69 +8045,38 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNB( UINT16 *pBuffer, UINT32 uiDestPitchBY
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr
-		mov		edi, DestPtr
-		mov		edx, OFFSET ShadeTable
-		xor		eax, eax
-		mov		ebx, ZPtr
-		xor		ecx, ecx
-
-BlitDispatch:
-
-		mov		cl, [esi]
-		inc		esi
-		or		cl, cl
-		js		BlitTransparent
-		jz		BlitDoneLine
-
-//BlitNonTransLoop:
-
-BlitNTL4:
-
-		mov		ax, [ebx]
-		cmp		ax, usZValue
-		jae		BlitNTL5
-
-		xor		eax, eax
-		mov		ax, [edi]
-		mov		ax, [edx+eax*2]
-		mov		[edi], ax
-
-BlitNTL5:
-		inc		esi
-		add		edi, 2
-		add		ebx, 2
-		dec		cl
-		jnz		BlitNTL4
-
-		jmp		BlitDispatch
-
-
-BlitTransparent:
-
-		and		ecx, 07fH
-//		shl		ecx, 1
-		add	ecx, ecx
-		add		edi, ecx
-		add		ebx, ecx
-		jmp		BlitDispatch
-
-
-BlitDoneLine:
-
-		dec		usHeight
-		jz		BlitDone
-		add		edi, LineSkip
-		add		ebx, LineSkip
-		jmp		BlitDispatch
-
-
-BlitDone:
+	// Portable ETRLE shadow blit: Z-tested darken, no Z update.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		UINT16* zbuf = (UINT16*)ZPtr;
+		UINT32 rows = usHeight;
+		while (rows-- > 0) {
+			UINT16* rowDest = dest;
+			UINT16* rowZ    = zbuf;
+			for (;;) {
+				const UINT8 cmd = *src++;
+				if (cmd == 0) break;
+				if (cmd & 0x80) {
+					const UINT8 n = cmd & 0x7F;
+					rowDest += n;
+					rowZ    += n;
+					continue;
+				}
+				for (UINT8 i = 0; i < cmd; ++i) {
+					if (*rowZ < usZValue) {
+						*rowDest = ShadeTable[*rowDest];
+					}
+					++src;
+					++rowDest;
+					++rowZ;
+				}
+			}
+			dest = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+			zbuf = (UINT16*)((UINT8*)zbuf + uiDestPitchBYTES);
+		}
+		(void)p16BPPPalette;
 	}
-#endif
 
 	return(TRUE);
 
