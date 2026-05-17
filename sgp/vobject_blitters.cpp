@@ -937,23 +937,14 @@ UINT32 uiLineSkip, usWidth, usHeight;
 	if((usHeight==0) || (usWidth==0))
 		return(FALSE);
 
-#ifdef _WIN32
-	__asm {
-		mov		edi, pZPtr
-		xor		eax, eax
-		mov		ax, usZValue
-		mov		ebx, usWidth
-		mov		edx, usHeight
-
-BZR1:
-		mov		ecx, ebx
-		rep		stosw
-		add		edi, uiLineSkip
-
-		dec		edx
-		jnz		BZR1
+	// Portable BlitZRect: fill rect of Z buffer with usZValue.
+	{
+		UINT16* row = (UINT16*)pZPtr;
+		for (UINT32 y = 0; y < usHeight; ++y) {
+			for (UINT32 x = 0; x < usWidth; ++x) row[x] = usZValue;
+			row = (UINT16*)((UINT8*)row + uiPitch);
+		}
 	}
-#endif
 
 	return(TRUE);
 }
@@ -7039,44 +7030,16 @@ UINT16		*startoffset;
 	linelength=x2real-x1real+1;
 	lineskip=uiDestPitchBYTES-(linelength*2);
 
-#ifdef _WIN32
-	__asm {
-		mov		edi, startoffset
-		mov		ax, color
-		shl		eax, 16
-		mov		ax, color
-		mov		edx, lines
-		mov		ebx, linelength
-
-// edi = destination pointer
-// eax = dword of color value
-// ebx = line length
-// ecx = column counter
-// edx = row counter
-
-LineLoop:
-		mov		ecx, ebx
-
-		clc
-		rcr		ecx, 1
-		jnc		FL2
-
-		mov		[edi], ax
-		add		edi, 2
-
-FL2:
-		or		ecx, ecx
-		jz		FillLineEnd
-
-		rep		stosd
-
-FillLineEnd:
-		add		edi, lineskip
-		dec		edx
-		jnz		LineLoop
-
+	// Portable FillRect16BPP.
+	{
+		UINT16* row = startoffset;
+		for (UINT32 y = 0; y < lines; ++y) {
+			for (UINT32 x = 0; x < linelength; ++x) row[x] = color;
+			row = (UINT16*)((UINT8*)row + uiDestPitchBYTES);
+		}
+		(void)lineskip;
 	}
-#endif
+
 	return(TRUE);
 }
 
