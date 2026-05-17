@@ -772,19 +772,35 @@ What landed:
    9 replacement gives portable text rendering). Currently still
    `#ifdef _WIN32`-gated; will fail to compile on Windows now that
    the DD getters are gone, but Windows builds aren't being verified.
-7. `vobject_blitters.cpp` inline-asm blocks (still `_WIN32`-gated):
-   MSVC-syntax `__asm { }`. On clang these wouldn't compile anyway;
-   they only kick in on MSVC. Two ports landed as Phase 6 toehold
-   (commit `800f2bc2`): `blendWithAlpha` (now does real RGB565
-   alpha math instead of returning 0/black) and `Blt16BPPTo16BPP`
-   (row-by-row memcpy). The remaining ~70 inline-asm bodies
-   (Blt8BPPDataTo16BPPBuffer* variants with Z-buffer / clip /
-   translucent / mono-shadow / mirror / pixelate / color-tint
-   permutations) still resolve to "return TRUE without writing
-   anything" on macOS. They need a single portable ETRLE row-
-   decoder that each variant calls with a per-pixel callback;
-   that's the right architecture but a substantial future
-   session.
+7. `vobject_blitters.cpp` inline-asm blocks. 14 ports landed so
+   far (commits `800f2bc2` through `6d7a6450`):
+   - `blendWithAlpha` (real RGB565 alpha math)
+   - `Blt16BPPTo16BPP`, `Blt16BPPTo16BPPMirror` (16bpp opaque /
+     mirror memcpy)
+   - `Blt8BPPTo8BPP` (8bpp row memcpy)
+   - `Blt8BPPDataTo16BPPBufferTransparent{,Clip}` (UI sprite,
+     unclipped + clipped)
+   - `Blt8BPPDataTo16BPPBufferTransZ{,NB,Clip,NBClip}` (Z-tested
+     sprite, with/without Z update, unclipped + clipped -- workhorse
+     for game-world tile rendering)
+   - `Blt8BPPDataTo16BPPBufferTransMirror` (left/right sprite flip)
+   - `Blt8BPPDataTo16BPPBufferMonoShadowClip` (font rasterizer
+     glyph blit)
+   - `Blt8BPPDataTo16BPPBufferShadowZ{,NB,Clip,NBClip}` (Z-tested
+     darken via ShadeTable[], with/without Z update, unclipped +
+     clipped -- merc/object shadows)
+
+   Convention adopted commit `9928b26f`: drop the `#ifdef _WIN32`
+   gating entirely when porting. The asm bodies are dead code on
+   every platform we're building (clang doesn't support MSVC
+   inline asm; Windows isn't being verified), so future ports just
+   delete the asm block and paste a portable ETRLE decoder where
+   it was. Typical diff: ~30 lines added, ~170 lines removed.
+
+   ~62 inline-asm blocks remain. The pattern is now fully
+   mechanical (each is the same ETRLE row decoder skeleton with
+   different per-pixel logic + a Z-test variant); future sessions
+   can crank through them.
 
 **Exit criterion (Phase 5 full)**: game boots into main menu on all
 three platforms and renders correctly via the existing RGB565
