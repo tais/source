@@ -79,6 +79,13 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		return true;
 
 	case SDL_EVENT_KEY_DOWN: {
+		// Backstop quit path while the in-game menus aren't wired up
+		// yet: ESC closes the window. Cmd+Q on macOS is normally
+		// SDL_EVENT_QUIT but we accept it explicitly in case the
+		// translation gets dropped.
+		if (ev->key.key == SDLK_ESCAPE) return true;
+		if ((ev->key.key == SDLK_Q) && (ev->key.mod & SDL_KMOD_GUI)) return true;
+
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
 		if (vk) {
 			// Update gfKeyState directly instead of calling KeyDown,

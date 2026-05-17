@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 #include <cstdio>
+#include <csignal>
 #include "sgp.h"
 #include "vobject.h"
 #include "Font.h"
@@ -1389,6 +1390,11 @@ int main(int argc, char** argv)
 		if (!cmdline.empty()) cmdline += ' ';
 		cmdline += argv[i];
 	}
+
+	// Make Ctrl+C / SIGTERM tear the game down cleanly instead of
+	// requiring a force-quit if the SDL3 window stops responding.
+	std::signal(SIGINT,  [](int){ gfProgramIsRunning = FALSE; });
+	std::signal(SIGTERM, [](int){ gfProgramIsRunning = FALSE; });
 
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());

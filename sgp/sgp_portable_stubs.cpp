@@ -49,11 +49,21 @@ BOOLEAN IsKeyPressed(INT32)      { return FALSE; }
 INT32   ParseKeyString(STR8)     { return 0; }
 
 // ---- Intro (Ja2/Intro.cpp) -------------------------------------------------
-// Phase 8 will land real cinematic playback. Until then these need to
-// return TRUE on init/shutdown (the screen registration loop treats
-// FALSE as a fatal error) and a benign screen id on handle.
+// Phase 8 will land real cinematic playback. Until then init/shutdown
+// just need to return TRUE (the screen registration loop treats FALSE
+// as a fatal error) and Handle has to:
+//   1. flip gfDoneWithSplashScreen TRUE -- otherwise InitScreenHandle
+//      bounces straight back to INTRO_SCREEN every tick and nothing
+//      ever draws
+//   2. return a next-screen id that gets us out of the intro --
+//      INIT_SCREEN per the real INTRO_SPLASH path in Ja2/Intro.cpp
+#include "screenids.h"
+extern BOOLEAN gfDoneWithSplashScreen;
 UINT32 IntroScreenInit()         { return 1; }
-UINT32 IntroScreenHandle()       { return 0; }
+UINT32 IntroScreenHandle()       {
+	gfDoneWithSplashScreen = TRUE;
+	return INIT_SCREEN;
+}
 UINT32 IntroScreenShutdown()     { return 1; }
 void   SetIntroType(INT8)        {}
 void   StopIntroVideo()          {}

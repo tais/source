@@ -1,5 +1,15 @@
 #include "AbstractXMLLoader.h"
 
+// The in-tree sgp/expat.h is from expat 1.95.7 (vendored with the
+// original JA2 source), but the build links against modern expat
+// (2.6+, fetched via FetchContent). The billion-laughs-DoS guard added
+// in 2.4.0 needs to be relaxed for JA2's data files. Forward-declare
+// it here rather than swapping every expat include over to the modern
+// header all at once.
+extern "C" XMLPARSEAPI(XML_Bool)
+XML_SetBillionLaughsAttackProtectionMaximumAmplification(
+	XML_Parser parser, float maximumAmplification);
+
 namespace LogicalBodyTypes {
 
 	AbstractXMLLoader::AbstractXMLLoader(XML_StartElementHandler startHandler, XML_EndElementHandler endHandler, XML_CharacterDataHandler charHandler, ParseDataFactoryFunc parseDataFactF) {
@@ -40,6 +50,12 @@ bool AbstractXMLLoader::LoadFromFile(const char* directoryName, const char* file
 	strcpy(fileNameFull, directoryName);
 	strcat(fileNameFull, fileName);
 	XML_Parser parser = XML_ParserCreate(NULL);
+	// Disable expat's billion-laughs DoS protection -- JA2's data files
+	// legitimately expand a handful of large entity references and the
+	// default 100x amplification limit trips before we finish loading
+	// AnimationSurfaces.xml. The XML files ship with the game so the
+	// DoS vector doesn't apply here.
+	XML_SetBillionLaughsAttackProtectionMaximumAmplification(parser, 1000000.0f);
 	AbstractXMLLoader::ParseData* data = parseDataFactFuncPntr(&parser);
 
 	std::string msg = "Loading ";
@@ -123,7 +139,7 @@ int XMLCALL AbstractXMLLoader::ExternalEntityHandler(XML_Parser args, const XML_
 	}
 	lpcBuffer[uiFSize] = 0;
 	FileClose(hFile);
-	
+
 	XML_Parser extParser = XML_ExternalEntityParserCreate(*eArgs->pParser, context, NULL);
 	ParseData* data = (ParseData*)XML_GetUserData(*eArgs->pParser);
 	data->pParser = &extParser;
