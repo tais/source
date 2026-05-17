@@ -4869,43 +4869,21 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer( UINT16 *pBuffer, UINT32 uiDestPitchBYTES, H
 	p16BPPPalette = hSrcVSurface->p16BPPPalette;
 	LineSkip=(uiDestPitchBYTES-(BlitLength*2));
 
-#ifdef _WIN32
-	__asm {
-
-		mov		esi, SrcPtr					// pointer to current line start address in source
-		mov		edi, DestPtr				// pointer to current line start address in destination
-		mov		ebx, BlitHeight			// line counter (goes top to bottom)
-		mov		edx, p16BPPPalette	// conversion table
-
-		sub		eax, eax
-		sub		ecx, ecx
-
-NewRow:
-		mov		ecx, BlitLength			// pixels to blit count
-
-BlitLoop:
-		mov		al, [esi]
-		xor		ah, ah
-
-		shl		eax, 1							// make it into a word index
-		mov		ax, [edx+eax]				// get 16-bit version of 8-bit pixel
-		mov		[edi], ax						// store it in destination buffer
-
-		inc		edi
-		inc		esi
-		inc		edi
-		dec		ecx
-		jnz		BlitLoop
-
-		add		esi, SrcSkip				// move line pointers down one line
-		add		edi, LineSkip
-
-		dec		ebx									// check line counter
-		jnz		NewRow							// done blitting, exit
-
-//DoneBlit:											// finished blit
+	// Raw (non-ETRLE) 8bpp subrect copy into 16bpp via palette LUT.
+	{
+		const UINT8* src = SrcPtr;
+		UINT16* dest = (UINT16*)DestPtr;
+		for (UINT32 row = 0; row < BlitHeight; ++row) {
+			for (UINT32 x = 0; x < BlitLength; ++x) {
+				dest[x] = p16BPPPalette[src[x]];
+			}
+			src  += uiSrcPitch;
+			dest  = (UINT16*)((UINT8*)dest + uiDestPitchBYTES);
+		}
+		(void)SrcSkip;
+		(void)LineSkip;
+		(void)RightSkip;
 	}
-#endif
 
 	return( TRUE );
 
