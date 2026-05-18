@@ -1066,7 +1066,7 @@ mass-rewrite:
 navigate the main menu, open INITIAL GAME SETTINGS, change
 difficulty, click Start, accept the confirmation dialog.
 
-### 6e. Post-"Start New Game": black laptop screen (next session)
+### 6e. Post-"Start New Game": black laptop screen + popupDef double-free (next session)
 
 After accepting the confirmation dialog the game transitions to
 `LAPTOP_SCREEN` (the mercenary hiring laptop). On macOS that
@@ -1078,17 +1078,63 @@ running.
 
 Likely culprits, in decreasing probability:
 
-- `EnterLaptop()` (Laptop/laptop.cpp:877) loads a pile of VObjects
-  for the laptop UI; if any one fails silently the framebuffer stays
-  black. Trace which `CreateVideoObject` calls return NULL.
 - The laptop's transition animation path
   (`gfStartMapScreenToLaptopTransition`) is keyed on a flag that's
-  FALSE on the first entry from the New Game path, so the alternate
-  "just show the laptop" code path takes over -- worth confirming
-  that path even paints the background image before bailing.
+  FALSE on the first entry from the New Game path, AND
+  `fReDrawScreenFlag` (FALSE by default, reset to FALSE inside
+  `EnterLaptop`) is never set. With both flags FALSE the per-frame
+  handler at `Laptop/laptop.cpp:2521` skips the `RenderLapTopImage()
+  + RenderLaptop()` block entirely. The legacy code's first entry
+  on Windows must have set one of those flags via a path we're not
+  tickling on macOS (no intro video? no fade-in transition?).
+  Setting `fReDrawScreenFlag = TRUE` right after `EnterLaptop()`
+  returns is the most surgical experiment to try.
+- `EnterLaptop()` itself (Laptop/laptop.cpp:877) loads a pile of
+  VObjects for the laptop UI; if any one fails silently the
+  framebuffer stays black anyway. Trace which `CreateVideoObject`
+  calls return NULL.
 - A resolution-specific layout: laptop screen logic has explicit
   cases for 640x480 / 800x600 / 1024x768 and a default; at 1366x768
   the default fires and may compute wrong offsets.
+
+**Related bug: popupDef double-free.** `Tactical/Items.cpp` declares
+a static `std::map<UINT8, popupDef> LBEPocketPopup`. `popupDef`
+holds a `std::vector<popupDefContent*>` and its destructor
+delete-loops over the pointers, but the class has no user-defined
+copy constructor / assignment. The XML loader at
+`Tactical/XML_LBEPocketPopup.cpp:297` does
+`LBEPocketPopup[id] = *new_popup;` -- a shallow copy that shares
+the content pointers between the source popupDef and the map
+entry. When the static map is destroyed at process exit, each
+entry's destructor frees pointers that have already been freed
+(via either the leaked-source destructor or a prior LBEPocketPopup
+re-init), producing the `popupDefContent::~popupDefContent`
+`SIGTRAP` we saw in the crash report (decoded from
+`~/Library/Logs/DiagnosticReports/JA2_ENGLISH-*.ips`).
+
+Attempted fix: disable copy, add move semantics, switch the XML
+loader to `std::move`. That compiled but produced an instant
+runtime SIGTRAP in `popupDefContent::~popupDefContent` *before*
+the main menu even appeared -- meaning the move-only constraint
+broke something the loader was relying on that wasn't visible from
+just the one assignment site. Reverted the attempt; the original
+exit-time double-free is still latent.
+
+Real fix probably needs one of:
+- give `popupDef` a deep-copy constructor (clone the content
+  vector via a `popupDefContent::clone()` virtual) instead of
+  move-only; the legacy code paths then keep working unchanged;
+- OR convert `LBEPocketPopup` to `std::map<UINT8, popupDef*>` (or
+  `std::unique_ptr<popupDef>`) so nothing is ever copied;
+- OR audit every `popupDef` usage and make sure the XML loader's
+  `pData->curPocketPopup` is also leaked-but-never-destructed
+  (which it currently is, hence the exit crash happening only when
+  the static map is finally torn down).
+
+`popupDefContent` also has a non-virtual destructor while
+`popupDef::~popupDef` `delete`s through that base pointer -- UB
+that's been working on Windows by accident. Fix while you're in
+there.
 
 ---
 
