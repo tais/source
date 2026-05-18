@@ -4,7 +4,7 @@
 #endif
 	#include "Items.h"
 	#include "Action Items.h"
-	#include "handle Items.h"
+	#include "Handle Items.h"
 	#include "Overhead.h"
 	#include "Weapons.h"
 	#include "Points.h"
@@ -16,7 +16,7 @@
 	#include "Animation Control.h"
 	#include "Font Control.h"
 	#include "Render Dirty.h"
-	#include "World items.h"
+	#include "World Items.h"
 	#include "Text.h"
 	#include "Timer Control.h"
 	#include "WCheck.h"
