@@ -38,13 +38,19 @@ jobs:
           set -eux
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config \
+            clang cmake ninja-build pkg-config \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libx11-dev libxext-dev libxcursor-dev libxi-dev \
             libxinerama-dev libxrandr-dev libxss-dev libxkbcommon-dev \
             libgl1-mesa-dev libegl1-mesa-dev \
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
             libibus-1.0-dev
+          # SDL3's CMakeLists unconditionally appends '-Wno-error=
+          # address-of-temporary' which is a Clang-specific warning
+          # name; GCC bails on the unknown flag. Use clang to match the
+          # macOS toolchain (Apple Clang) and sidestep this entirely.
+          echo "CC=clang"   >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Install macOS build deps
         if: matrix.platform == 'macos'
