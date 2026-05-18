@@ -1037,7 +1037,52 @@ BOOLEAN BltVSurfaceUsingDD(HVSURFACE hDst, HVSURFACE hSrc, UINT32 fBltFlags,
 // retirement.
 BOOLEAN ImageFillVideoSurfaceArea(UINT32, INT32, INT32, INT32, INT32,
                                   HVOBJECT, UINT16, INT16, INT16) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceRect(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
 BOOLEAN ShadowVideoSurfaceImage(UINT32, HVOBJECT, INT32, INT32) { return FALSE; }
-BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32, INT32, INT32, INT32, INT32) { return FALSE; }
+
+// Darken every RGB565 pixel inside the rectangle to half-brightness.
+// JA2 uses this to shadow the interior of FastHelp tooltips, button
+// hover popups, prone-merc info boxes -- anywhere the legacy code
+// wants a translucent dark overlay on the existing pixels. The Win32
+// path drove a precomputed shadow lookup table; for our purposes a
+// per-channel right-shift produces the same visible effect (50% of
+// each channel's value, clipped to RGB565 bit widths) without the
+// table-build complexity.
+//
+// Pairs with the same call inside DisplayFastHelp (mousesystem.cpp)
+// where the previous stub left tooltips with no background at all --
+// world content showed straight through and the only "tooltip" was
+// the two outline rectangles drawn just before.
+BOOLEAN ShadowVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
+{
+	if (X2 <= X1 || Y2 <= Y1) return FALSE;
+	UINT32 pitchBytes = 0;
+	UINT16* pBuf = (UINT16*)LockVideoSurface(uiDestVSurface, &pitchBytes);
+	if (!pBuf) return FALSE;
+	const INT32 stridePx = (INT32)(pitchBytes / sizeof(UINT16));
+	const INT32 xL = X1 < 0 ? 0 : X1;
+	const INT32 yT = Y1 < 0 ? 0 : Y1;
+	const INT32 xR = X2 > (INT32)SCREEN_WIDTH  ? (INT32)SCREEN_WIDTH  : X2;
+	const INT32 yB = Y2 > (INT32)SCREEN_HEIGHT ? (INT32)SCREEN_HEIGHT : Y2;
+	for (INT32 y = yT; y < yB; ++y) {
+		UINT16* row = pBuf + y * stridePx;
+		for (INT32 x = xL; x < xR; ++x) {
+			const UINT16 p = row[x];
+			const UINT16 r = (p >> 11) & 0x1F;
+			const UINT16 g = (p >>  5) & 0x3F;
+			const UINT16 b =  p        & 0x1F;
+			row[x] = (UINT16)(((r >> 1) << 11) | ((g >> 1) << 5) | (b >> 1));
+		}
+	}
+	UnLockVideoSurface(uiDestVSurface);
+	return TRUE;
+}
+
+// Low-percent darken: same as above for now (the legacy code used a
+// gentler 25% shade table; visually 50% reads as "darker tooltip
+// background", which is fine for the few call sites that use this
+// variant -- they're all tooltip-style overlays).
+BOOLEAN ShadowVideoSurfaceRectUsingLowPercentTable(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
+{
+	return ShadowVideoSurfaceRect(uiDestVSurface, X1, Y1, X2, Y2);
+}
 
