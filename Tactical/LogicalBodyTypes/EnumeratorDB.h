@@ -22,7 +22,7 @@ public:
 public:
 	EnumeratorDB();
 	~EnumeratorDB();
-	void AddEnum(std::string enumName, int num, char* strEnumerators, ...);
+	void AddEnum(std::string enumName, int num, const char *strEnumerators, ...);
 	// Note: this will return the FIRST enumerator of the specified enumeration
 	// that matches the provided ordinal value!
 	// Also: it is expected that this will only be called in situations where the efficiency is not relevant

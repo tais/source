@@ -38,7 +38,7 @@ LuaMines::LuaMines()
 
 void LuaMines::LoadScript()
 {
-	char * filename = "scripts\\initmines.lua";
+	const char * filename = "scripts\\initmines.lua";
 	UINT32 size, bytesRead;
 
 

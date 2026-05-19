@@ -55,7 +55,7 @@ enum MusicList
 	NUM_MUSIC
 };
 
-CHAR8* szMusicList[NUM_MUSIC] =
+const CHAR8 *szMusicList[NUM_MUSIC] =
 {
 	"MUSIC\\marimbad 2",
 	"MUSIC\\menumix1",

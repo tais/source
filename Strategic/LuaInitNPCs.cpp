@@ -2901,7 +2901,7 @@ static SOLDIERTYPE* FindSoldierByProfileID2(UINT8 ubProfileID, BOOLEAN fPlayerMe
 
 BOOLEAN LuaHandleNPCDoAction(UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum, UINT8 InitFunction)
 {
-	char* filename = "scripts\\InterfaceDialogue.lua";
+	const char* filename = "scripts\\InterfaceDialogue.lua";
 	UINT32 size, bytesRead;
 	char* buffer;
 
@@ -2956,7 +2956,7 @@ BOOLEAN LuaHandleNPCDoAction(UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuo
 
 BOOLEAN LetLuaInterfaceDialogue(UINT8 ubNPC, UINT8 InitFunction)
 {
-	const char* filename = "scripts\\InterfaceDialogue.lua";
+	const const char* filename = "scripts\\InterfaceDialogue.lua";
 
 	LuaScopeState _LS(true);
 

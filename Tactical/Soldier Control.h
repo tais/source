@@ -2179,7 +2179,7 @@ void RevivePlayerTeam( );
 BOOLEAN ReCreateSelectedSoldierLight(	);
 
 // Palette functions for soldiers
-BOOLEAN GetPaletteRepIndexFromID( PaletteRepID aPalRep, UINT8 *pubPalIndex );
+BOOLEAN GetPaletteRepIndexFromID( const CHAR8 *aPalRep, UINT8 *pubPalIndex );
 BOOLEAN	SetPaletteReplacement( SGPPaletteEntry *p8BPPPalette, PaletteRepID aPalRep );
 BOOLEAN LoadPaletteData( );
 BOOLEAN DeletePaletteData( );

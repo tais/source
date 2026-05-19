@@ -113,8 +113,8 @@ BOOLEAN GetFileManCurrentDirectory( STRING512 pcDirectory );
 BOOLEAN GetExecutableDirectory( STRING512 pcDirectory );
 
 // WARNING: THESE DELETE ALL FILES IN THE DIRECTORY ( and all subdirectories if fRecursive is TRUE!! )
-BOOLEAN RemoveFileManDirectory( STRING512 pcDirectory, BOOLEAN fRecursive);
-BOOLEAN EraseDirectory( STRING512 pcDirectory);
+BOOLEAN RemoveFileManDirectory( const CHAR8 *pcDirectory, BOOLEAN fRecursive);
+BOOLEAN EraseDirectory( const CHAR8 *pcDirectory);
 
 typedef struct _GETFILESTRUCT_TAG {
 	INT32 iFindHandle;

@@ -9326,7 +9326,7 @@ BOOLEAN DeletePaletteData( )
 }
 
 
-BOOLEAN GetPaletteRepIndexFromID( PaletteRepID aPalRep, UINT8 *pubPalIndex )
+BOOLEAN GetPaletteRepIndexFromID( const CHAR8 *aPalRep, UINT8 *pubPalIndex )
 {
 	UINT32 cnt;
 

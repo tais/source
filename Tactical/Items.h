@@ -165,7 +165,7 @@ BOOLEAN ItemHasAttachments( OBJECTTYPE *pItem, SOLDIERTYPE * pSoldier = NULL, UI
 //Determine if this item can receive this attachment.	This is different, in that it may
 //be possible to have this attachment on this item, but may already have an attachment on
 //it which doesn't work simultaneously with the new attachment (like a silencer and duckbill).
-BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = NULL, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
+BOOLEAN ValidItemAttachment( OBJECTTYPE * pObj, UINT16 usAttachment, BOOLEAN fAttemptingAttachment, BOOLEAN fDisplayMessage = TRUE, UINT8 subObject = 0, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
 //Return true if usAttachment would fit on an item with usItem, without considering possible other attachments on this gun. This may be inaccurate for NAS, because slots can change.
 BOOLEAN ValidAttachment( UINT16 usAttachment, UINT16 usItem, UINT8* ubAPCost = NULL );
 //This function does the same as the above, but is more accurate.
@@ -621,7 +621,7 @@ UINT8 GetFirstPocketOnItem(UINT16 usIndex);
 INT8 GetNumberAltFireAimLevels( SOLDIERTYPE * pSoldier, INT32 iGridNo );
 
 // Flugente: retrieve a specific clothes item, if such a thing exists
-BOOLEAN	GetFirstClothesItemWithSpecificData( UINT16* pusItem, PaletteRepID aPalVest, PaletteRepID aPalPants );
+BOOLEAN	GetFirstClothesItemWithSpecificData( UINT16* pusItem, const CHAR8 *aPalVest, const CHAR8 *aPalPants );
 
 // Flugente: function to determine what item a random item spawns
 BOOLEAN GetItemFromRandomItem( UINT16 usRandomItem, UINT16* pusNewItem );

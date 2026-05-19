@@ -60,7 +60,7 @@ static struct LiveLog {
 	};
 } s_LiveLog;
 
-void LiveMessage( CHAR8 *strMessage)
+void LiveMessage( const CHAR8 *strMessage)
 {
 	SGP_LOG(s_LiveLog.id, strMessage);
 }

@@ -2786,7 +2786,7 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 				wcscpy(buffer,TacticalStr[ DISARM_TRAP_PROMPT ]);
 				if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
 				{
-					wchar_t * string = L" (";
+					const wchar_t * string = L" (";
 					wchar_t string2[20];
 
 					ptr = wcscat(buffer, string);

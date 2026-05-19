@@ -803,7 +803,7 @@ BOOLEAN GetFileManCurrentDirectory( STRING512 pcDirectory )
 // Removes ALL FILES in the specified directory (and all subdirectories with their files if fRecursive is TRUE)
 // Use EraseDirectory() to simply delete directory contents without deleting the directory itself
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-BOOLEAN RemoveFileManDirectory( STRING512 pcDirectory, BOOLEAN fRecursive )
+BOOLEAN RemoveFileManDirectory( const CHAR8 *pcDirectory, BOOLEAN fRecursive )
 {
 	// ignore 'recursive' flag, just delete every file in that subtree (but leave the directories)
 	return getVFS()->removeDirectoryFromFS(pcDirectory);
@@ -814,7 +814,7 @@ BOOLEAN RemoveFileManDirectory( STRING512 pcDirectory, BOOLEAN fRecursive )
 // Removes ALL FILES in the specified directory but leaves the directory alone.	Does not affect any subdirectories!
 // Use RemoveFilemanDirectory() to also delete the directory itself, or to recursively delete subdirectories.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-BOOLEAN EraseDirectory( STRING512 pcDirectory)
+BOOLEAN EraseDirectory( const CHAR8 *pcDirectory)
 {
 	// ignore 'recursive' flag, just delete every file in that subtree (but leave the directories)
 	return getVFS()->removeDirectoryFromFS(pcDirectory);

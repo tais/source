@@ -1817,7 +1817,7 @@ STRUCTURE* GetStructForLevelNodeOfTypeRange( INT32 iMapIndex, UINT32 fStartType,
 bool GetTypeRegionIndexForLevelNodeOfTypeRange( INT32 iMapIndex, UINT32 fStartType, UINT32 fEndType, UINT32& arTileType, UINT16& arRegionIndex )
 {
 	if ( TileIsOutOfBounds( iMapIndex ) )
-		return NULL;
+		return false;
 	
 	LEVELNODE* pLevelNode = gpWorldLevelData[iMapIndex].pStructHead;
 

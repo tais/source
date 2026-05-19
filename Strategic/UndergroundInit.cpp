@@ -260,10 +260,10 @@ void LuaUnderground::LoadScript(const char * langPrefix)
 	LuaState L = GetLuaState();
 
 	// #1: builds strategic underground layout
-	char * initunderground = "scripts\\initunderground.lua";
+	const char * initunderground = "scripts\\initunderground.lua";
 
 	// #2: provides sector names; this is localized, build actual filename at runtime
-	char * sectornamesfile = "undergroundsectornames.lua";
+	const char * sectornamesfile = "undergroundsectornames.lua";
 	std::string sectornames("scripts\\");
 	if (langPrefix != NULL)
 		sectornames.append(langPrefix);

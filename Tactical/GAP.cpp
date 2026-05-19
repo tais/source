@@ -10,7 +10,7 @@ SUBSEQUENTSOUNDS subsequentsounds;
 
 
 
-void AudioGapListInit( CHAR8 *zSoundFile, AudioGapList	*pGapList )
+void AudioGapListInit( const CHAR8 *zSoundFile, AudioGapList	*pGapList )
 {
 	// This procedure will load in the appropriate .gap file, corresponding
 	// to the .wav file in szSoundEffects indexed by uiSampleNum
@@ -19,7 +19,7 @@ void AudioGapListInit( CHAR8 *zSoundFile, AudioGapList	*pGapList )
 
 //	FILE *pFile;
 	HWFILE pFile;
-	CHAR8 *pSourceFileName;
+	const CHAR8 *pSourceFileName;
 	CHAR8 *pDestFileName;
 	char sFileName[256];
 	UINT8 counter=0;
@@ -220,7 +220,7 @@ void PollAudioGap( UINT32 uiSampleNum, AudioGapList *pGapList )
 }
 
 
-UINT32 PlayJA2GapSample( CHAR8 *zSoundFile, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan, AudioGapList* pData )
+UINT32 PlayJA2GapSample( const CHAR8 *zSoundFile, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan, AudioGapList* pData )
 {
 	SOUNDPARMS spParms;
 

@@ -380,9 +380,9 @@ POPUP::POPUP(void)
 }
 
 
-POPUP::POPUP(CHAR8* name)
+POPUP::POPUP(const CHAR8 *name)
 {
-	strcpy((char*) this->name, (char*) name);
+	strcpy((char*) this->name, (const char*) name);
 	this->optionCount = 0;
 
 	this->addToIndex();
