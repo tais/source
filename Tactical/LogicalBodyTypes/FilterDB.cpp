@@ -1,5 +1,7 @@
 #include "FilterDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp/strtok the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 	FilterDB::FilterDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle, MakeParseData) {
@@ -125,9 +127,9 @@ namespace LogicalBodyTypes {
 			else {
 				data->criterionType |= Filter::_REQ_EQ;
 			}
-			XML_Char const* not = GetAttribute("not", atts);
-			if (not != NULL) {
-				if (strcmp(not, "") != 0) throw XMLParseException("Not attribute must not have a value assigned!", name, data->pParser);
+			XML_Char const* notAttr = GetAttribute("not", atts);
+			if (notAttr != NULL) {
+				if (strcmp(notAttr, "") != 0) throw XMLParseException("Not attribute must not have a value assigned!", name, data->pParser);
 				data->criterionType |= Filter::_REQ_NOT;
 			}
 			break;

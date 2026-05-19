@@ -1,329 +1,431 @@
 //----------------------------------------------------------------------------------
-// Cinematics Module
+// Cinematics Module -- libsmacker-backed implementation.
 //
+// Phase 6u replaced the proprietary Smacker decoder (binkw32.lib /
+// SMACK.H from RAD Game Tools, Win32 only) with libsmacker, an
+// open-source SMK decoder. Same public API the rest of the engine
+// already calls (SmkInitialize / SmkPlayFlic / SmkPollFlics /
+// SmkCloseFlic / SmkShutdown), so Intro.cpp didn't need a rewrite
+// beyond dropping the _WIN32 gate that hid the whole VideoPlayer
+// class on non-Windows builds.
 //
-//	Stolen from Nemesis by Derek Beland.
-//	Originally by Derek Beland and Bret Rowden.
+// Frame display: each polled frame's 8-bit indexed pixels get
+// expanded to RGB565 through the SMK's current palette and blitted
+// straight into FRAME_BUFFER at (uiLeft, uiTop). The caller's normal
+// RefreshScreen presents it. Frame timing comes from libsmacker's
+// usf (microseconds per frame); we advance to the next frame when
+// real time has elapsed past the current frame's display deadline.
 //
-//	ChangeLog:
-//		10.12.2005 Lesh ripped everything that refers to MSS
-//		15.12.2005 Lesh enabled sound in video
+// Audio decode is Stage C -- this stage is video-only. Cinematics
+// run silent until then.
+//
+// Bink (.BIK) support stays absent. JA2's shipped data has no .BIK
+// files, just .SMK, so the BinkInitialize / BinkPlayFlic stubs in
+// Cinematics Bink.cpp keep returning failure and the VideoPlayer
+// just never gets a chance to use them.
 //----------------------------------------------------------------------------------
-//#include "LocalCodeAll.h"
 
 #include "types.h"
-#include <stdio.h>
-#include <io.h>
-#include <string.h>
-#include <fcntl.h>
-#include <share.h>
-#include <sys/stat.h>
-#include <malloc.h>
-#include <stdlib.h>
-
-#include "DEBUG.H"
-#include "FileMan.h"
-#include "SMACK.H"
-#include "ddraw.h"
-#include "DirectX Common.h"
-#include "DirectDraw Calls.h"
 #include "Cinematics.h"
-#include "soundman.h"
-#include <vfs/Core/vfs.h>
-#include <vfs/Core/vfs_file_raii.h>
+#include "FileMan.h"
+#include "DEBUG.H"
+#include "vsurface.h"
 
-	#include "video.h"
+extern "C" {
+#include "smacker.h"
+}
+#include <SDL3/SDL.h>
 
-#include "vsurface_private.h"
+#include <chrono>
+#include <cstdio>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
 
-
-
-
-
-#include <crtdbg.h>
-
-//-Structures----------------------------------------------------------------------
-
-//-Flags-and-Symbols---------------------------------------------------------------
-
-#define SMK_NUM_FLICS				4									// Maximum number of flics open
-
-// SMKFLIC uiFlags
-#define SMK_FLIC_OPEN				0x00000001							// Flic is open
-#define SMK_FLIC_PLAYING			0x00000002							// Flic is playing
-#define SMK_FLIC_LOOP				0x00000004							// Play flic in a loop
-#define SMK_FLIC_AUTOCLOSE			0x00000008							// Close when done
-
-//-Globals-------------------------------------------------------------------------
-SMKFLIC SmkList[SMK_NUM_FLICS];
-
-HWND		hDisplayWindow = 0;
-UINT32		uiDisplayHeight, uiDisplayWidth;
-BOOLEAN		fSuspendFlics = FALSE;
-UINT32		uiFlicsPlaying = 0;
-UINT32		guiSmackPixelFormat = SMACKBUFFER565;
-
-LPDIRECTDRAWSURFACE lpVideoPlayback=NULL;
-LPDIRECTDRAWSURFACE2 lpVideoPlayback2=NULL;
-
-
-//-Function-Prototypes-------------------------------------------------------------
-void			SmkInitialize(HWND hWindow, UINT32 uiWidth, UINT32 uiHeight);
-void			SmkShutdown(void);
-SMKFLIC			*SmkPlayFlic(CHAR8 *cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEAN fAutoClose);
-BOOLEAN			SmkPollFlics(void);
-SMKFLIC			*SmkOpenFlic(CHAR8 *cFilename);
-void			SmkSetBlitPosition(SMKFLIC *pSmack, UINT32 uiLeft, UINT32 uiTop);
-void			SmkCloseFlic(SMKFLIC *pSmack);
-SMKFLIC			*SmkGetFreeFlic(void);
-void			SmkSetupVideo(void);
-void			SmkShutdownVideo(void);
-
-
-BOOLEAN SmkPollFlics(void)
+static uint64_t NowNs()
 {
-	UINT32 uiCount;
-	BOOLEAN fFlicStatus = FALSE;
-	DDSURFACEDESC SurfaceDescription;
-
-	for(uiCount=0; uiCount < SMK_NUM_FLICS; uiCount++)
-	{
-		if(SmkList[uiCount].uiFlags & SMK_FLIC_PLAYING)
-		{
-			fFlicStatus=TRUE;
-			if(!fSuspendFlics)
-			{
-				if(!SmackWait(SmkList[uiCount].SmackHandle))
-				{
-					DDLockSurface(SmkList[uiCount].lpDDS, NULL, &SurfaceDescription, 0, NULL);
-					SmackToBuffer(SmkList[uiCount].SmackHandle,SmkList[uiCount].uiLeft,
-																					SmkList[uiCount].uiTop,
-																					SurfaceDescription.lPitch,
-																					SmkList[uiCount].SmackHandle->Height,
-																					SurfaceDescription.lpSurface,
-																					guiSmackPixelFormat);
-					SmackDoFrame(SmkList[uiCount].SmackHandle);
-					DDUnlockSurface(SmkList[uiCount].lpDDS, SurfaceDescription.lpSurface);
-					// temp til I figure out what to do with it
-					//InvalidateRegion(0,0, 640, 480, FALSE);
-
-					// Check to see if the flic is done the last frame
-					if(SmkList[uiCount].SmackHandle->FrameNum==(SmkList[uiCount].SmackHandle->Frames-1))
-					{
-						// If flic is looping, reset frame to 0
-						if(SmkList[uiCount].uiFlags & SMK_FLIC_LOOP)
-							SmackGoto(SmkList[uiCount].SmackHandle, 0);
-						else if(SmkList[uiCount].uiFlags & SMK_FLIC_AUTOCLOSE)
-							SmkCloseFlic(&SmkList[uiCount]);
-					}
-					else
-					{
-						SmackNextFrame(SmkList[uiCount].SmackHandle);
-					}
-				}
-			}
-		}
-	}
-	if(!fFlicStatus)
-		SmkShutdownVideo();
-
-	return(fFlicStatus);
+	using namespace std::chrono;
+	return (uint64_t)duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
-// Lesh changed this function only -----------------------------
-void SmkInitialize(HWND hWindow, UINT32 uiWidth, UINT32 uiHeight)
+extern UINT16 SCREEN_WIDTH;
+extern UINT16 SCREEN_HEIGHT;
+
+namespace {
+
+// SMKFLIC uiFlags
+constexpr UINT32 SMK_FLIC_OPEN      = 0x00000001;
+constexpr UINT32 SMK_FLIC_PLAYING   = 0x00000002;
+constexpr UINT32 SMK_FLIC_LOOP      = 0x00000004;
+constexpr UINT32 SMK_FLIC_AUTOCLOSE = 0x00000008;
+
+constexpr int SMK_NUM_FLICS = 4;
+
+} // namespace
+
+struct SMKFLIC
 {
-	// Wipe the flic list clean
-	memset(SmkList, 0, sizeof(SMKFLIC)*SMK_NUM_FLICS);
+	smk           smkHandle      = nullptr;     // libsmacker handle (NULL when slot is free)
+	UINT32        uiFlags        = 0;
+	UINT32        uiLeft         = 0;           // top-left blit position into FRAME_BUFFER
+	UINT32        uiTop          = 0;
+	UINT32        uiWidth        = 0;           // decoded video dimensions
+	UINT32        uiHeight       = 0;
+	UINT32        uiFrameCount   = 0;           // total frame count
+	double        dUsecPerFrame  = 0.0;
+	uint64_t      uiFrameStartNs = 0;           // wall-clock ns at which the current frame started displaying
+	bool          fFirstFrame    = false;       // true == next poll calls smk_first() rather than smk_next()
+	std::vector<uint8_t> rawFile;               // backing memory for smk_open_memory; must outlive smkHandle
+	// Audio playback state. SMK can carry up to 7 audio tracks; we
+	// always play track 0 because that's where the SFX music lives in
+	// every JA2 cinematic. The stream is opened bound to the system's
+	// default playback device; data we push via SDL_PutAudioStreamData
+	// gets resampled to the device's actual format automatically.
+	SDL_AudioStream* audioStream      = nullptr;
+	UINT32           uiAudioRate      = 0;        // sample rate of track 0 (0 == no audio)
+	unsigned char    uiAudioChans     = 0;
+	unsigned char    uiAudioBits      = 0;
+	uint64_t         uiAudioBytesPush = 0;        // total raw PCM bytes pushed via SDL_PutAudioStreamData
+	uint64_t         uiAudioBytesPerSec = 0;      // rate * channels * bytes_per_sample
+	uint32_t         uiFrameIndex     = 0;        // monotonically incremented per advance; 0 == first frame
+};
 
-	// Set playback window properties
-	hDisplayWindow = hWindow;
-	uiDisplayWidth = uiWidth;
-	uiDisplayHeight= uiHeight;
+namespace {
 
-	// Use MMX acceleration, if available
-	SmackUseMMX(1);
+SMKFLIC gSmkList[SMK_NUM_FLICS];
+bool    gFsuspendFlics = false;
 
-	//Get the sound Driver handle
-	void* pSoundDriver = SoundGetDriverHandle();
+SMKFLIC* SmkGetFreeFlic()
+{
+	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
+		if (!(gSmkList[i].uiFlags & SMK_FLIC_OPEN)) return &gSmkList[i];
+	}
+	return nullptr;
+}
 
-	//if we got the sound handle, use sound during the intro
-	if( pSoundDriver )
-		SmackSoundUseDirectSound( pSoundDriver );
+// Convert SMK 8-bit indexed frame -> RGB565 and blit into FRAME_BUFFER
+// at (dstX, dstY). Clips against the framebuffer bounds. Palette is
+// SMK_PALETTE_SIZE * 3 bytes of RGB888.
+void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsigned char* pixels)
+{
+	UINT32 pitchBytes = 0;
+	UINT16* fb = (UINT16*)LockVideoSurface(FRAME_BUFFER, &pitchBytes);
+	if (!fb) return;
+	const int stridePx = (int)(pitchBytes / sizeof(UINT16));
+
+	const int dstX0 = (int)f.uiLeft;
+	const int dstY0 = (int)f.uiTop;
+	const int srcW  = (int)f.uiWidth;
+	const int srcH  = (int)f.uiHeight;
+	const int dstXEnd = dstX0 + srcW;
+	const int dstYEnd = dstY0 + srcH;
+	const int clipL   = dstX0 < 0 ? -dstX0 : 0;
+	const int clipT   = dstY0 < 0 ? -dstY0 : 0;
+	const int clipR   = dstXEnd > (int)SCREEN_WIDTH  ? dstXEnd - (int)SCREEN_WIDTH  : 0;
+	const int clipB   = dstYEnd > (int)SCREEN_HEIGHT ? dstYEnd - (int)SCREEN_HEIGHT : 0;
+	const int copyW   = srcW - clipL - clipR;
+	const int copyH   = srcH - clipT - clipB;
+	if (copyW <= 0 || copyH <= 0) {
+		UnLockVideoSurface(FRAME_BUFFER);
+		return;
+	}
+
+	for (int y = 0; y < copyH; ++y) {
+		const unsigned char* srcRow = pixels + (clipT + y) * srcW + clipL;
+		UINT16* dstRow = fb + (dstY0 + clipT + y) * stridePx + (dstX0 + clipL);
+		for (int x = 0; x < copyW; ++x) {
+			const unsigned char idx = srcRow[x];
+			const unsigned char r8 = palette[idx * 3 + 0];
+			const unsigned char g8 = palette[idx * 3 + 1];
+			const unsigned char b8 = palette[idx * 3 + 2];
+			dstRow[x] = (UINT16)(((r8 >> 3) << 11) | ((g8 >> 2) << 5) | (b8 >> 3));
+		}
+	}
+	UnLockVideoSurface(FRAME_BUFFER);
+}
+
+void DecodeAndBlitCurrentFrame(SMKFLIC& f)
+{
+	const unsigned char* pal = smk_get_palette(f.smkHandle);
+	const unsigned char* px  = smk_get_video(f.smkHandle);
+	if (pal && px) BlitFrameToFrameBuffer(f, pal, px);
+}
+
+// Push the just-decoded frame's audio chunk (track 0) into our open
+// SDL audio stream. libsmacker stores per-track decoded PCM bytes;
+// smk_get_audio_size tells us how many. SDL_PutAudioStreamData copies
+// the bytes into its internal queue so we can advance past the source
+// buffer safely on the next smk_next call.
+void FeedCurrentFrameAudio(SMKFLIC& f)
+{
+	if (!f.audioStream || f.uiAudioRate == 0) return;
+	int track = -1;
+	for (int t = 0; t < 7; ++t) {
+		// Same track-pick rule as in SmkOpenFlic: lowest set bit. We
+		// re-derive it here rather than caching to keep SMKFLIC small.
+		if (smk_get_audio(f.smkHandle, (unsigned char)t) != nullptr) {
+			track = t;
+			break;
+		}
+	}
+	if (track < 0) return;
+	const unsigned char* pcm = smk_get_audio(f.smkHandle, (unsigned char)track);
+	const unsigned long  sz  = smk_get_audio_size(f.smkHandle, (unsigned char)track);
+	if (pcm && sz > 0) {
+		SDL_PutAudioStreamData(f.audioStream, pcm, (int)sz);
+		f.uiAudioBytesPush += sz;
+	}
+}
+
+} // namespace
+
+// ---- Public API -----------------------------------------------------------
+
+void SmkInitialize(void* /*hWindow*/, UINT32 /*uiWidth*/, UINT32 /*uiHeight*/)
+{
+	// Wipe all flic slots. The window-size arguments are vestigial -- the
+	// legacy DirectDraw path needed them to set up a video surface; we
+	// blit straight into the shared FRAME_BUFFER instead.
+	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
+		gSmkList[i] = SMKFLIC{};
+	}
+	gFsuspendFlics = false;
 }
 
 void SmkShutdown(void)
 {
-	UINT32 uiCount;
-
-	// Close and deallocate any open flics
-	for(uiCount=0; uiCount < SMK_NUM_FLICS; uiCount++)
-	{
-		if(SmkList[uiCount].uiFlags & SMK_FLIC_OPEN)
-			SmkCloseFlic(&SmkList[uiCount]);
+	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
+		if (gSmkList[i].uiFlags & SMK_FLIC_OPEN) {
+			SmkCloseFlic(&gSmkList[i]);
+		}
 	}
 }
 
-SMKFLIC *SmkPlayFlic(const CHAR8 *cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEAN fClose)
+SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 {
-	SMKFLIC *pSmack;
-
-	// Open the flic
-	if((pSmack=SmkOpenFlic(cFilename))==NULL)
-		return(NULL);
-
-	// Set the blitting position on the screen
-	SmkSetBlitPosition(pSmack, uiLeft, uiTop);
-
-	// We're now playing, flag the flic for the poller to update
-	pSmack->uiFlags|=SMK_FLIC_PLAYING;
-	if(fClose)
-		pSmack->uiFlags|=SMK_FLIC_AUTOCLOSE;
-
-	return(pSmack);
-}
-
-SMKFLIC *SmkOpenFlic(const CHAR8 *cFilename)
-{
-	SMKFLIC *pSmack;
-	
-	// Get an available flic slot from the list
-	if(!(pSmack=SmkGetFreeFlic()))
-	{
-		ErrorMsg("SMK ERROR: Out of flic slots, cannot open another");
-		return(NULL);
+	SMKFLIC* p = SmkGetFreeFlic();
+	if (!p) {
+		std::fprintf(stderr, "[smk] no free flic slots\n");
+		return nullptr;
 	}
 
-	vfs::Path introname(cFilename);
-	vfs::Path dir,filename;
-	introname.splitLast(dir,filename);
-	vfs::Path tempfile = vfs::Path(L"Temp") + filename;
-	if(!getVFS()->fileExists(tempfile))
-	{
-		try
-		{
-			if(!getVFS()->fileExists(introname))
-			{
-				return NULL;
+	// Load the file through FileMan so SLF archives (Intro.slf) work.
+	HWFILE h = FileOpen(const_cast<STR>(cFilename), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
+	if (!h) {
+		std::fprintf(stderr, "[smk] FileOpen failed: %s\n", cFilename);
+		return nullptr;
+	}
+	const UINT32 size = FileGetSize(h);
+	if (size == 0) {
+		FileClose(h);
+		return nullptr;
+	}
+	p->rawFile.assign(size, 0);
+	UINT32 bytesRead = 0;
+	FileRead(h, p->rawFile.data(), size, &bytesRead);
+	FileClose(h);
+	if (bytesRead != size) {
+		std::fprintf(stderr, "[smk] short read on %s: %u/%u\n", cFilename, bytesRead, size);
+		p->rawFile.clear();
+		return nullptr;
+	}
+
+	// SMK_MODE_MEMORY (0x00) -- libsmacker keeps the whole compressed
+	// stream in memory and decodes frames on demand. Fits our small SMK
+	// files (helicopter intro is ~4MB) and avoids holding a FILE* open
+	// inside the decoder while the rest of the game does I/O.
+	p->smkHandle = smk_open_memory(p->rawFile.data(), p->rawFile.size());
+	if (!p->smkHandle) {
+		std::fprintf(stderr, "[smk] smk_open_memory failed for %s\n", cFilename);
+		p->rawFile.clear();
+		return nullptr;
+	}
+
+	unsigned long w = 0, h_ = 0;
+	unsigned char y_scale = 0;
+	smk_info_video(p->smkHandle, &w, &h_, &y_scale);
+	unsigned long fc = 0;
+	double usf = 0.0;
+	smk_info_all(p->smkHandle, nullptr, &fc, &usf);
+	p->uiWidth       = (UINT32)w;
+	p->uiHeight      = (UINT32)h_;
+	p->uiFrameCount  = (UINT32)fc;
+	p->dUsecPerFrame = usf;
+
+	smk_enable_video(p->smkHandle, 1);
+
+	// Stage C: enable the first available audio track and open an
+	// SDL_AudioStream sized for its format. libsmacker reports a
+	// bitmask of populated tracks; track 0 is where every JA2 SMK
+	// puts its dialogue/SFX line, so we just pick whichever bit is
+	// lowest (the most-significant bits are 6.1-channel extras
+	// that JA2 files never use).
+	unsigned char trackMask = 0;
+	unsigned char chans[7] = {0};
+	unsigned char depth[7] = {0};
+	unsigned long rate[7]  = {0};
+	smk_info_audio(p->smkHandle, &trackMask, chans, depth, rate);
+	int track = -1;
+	for (int t = 0; t < 7; ++t) {
+		if (trackMask & (1u << t)) { track = t; break; }
+	}
+	if (track >= 0 && rate[track] > 0 && chans[track] > 0) {
+		smk_enable_audio(p->smkHandle, (unsigned char)track, 1);
+		p->uiAudioRate  = (UINT32)rate[track];
+		p->uiAudioChans = chans[track];
+		p->uiAudioBits  = depth[track];
+		SDL_AudioSpec spec;
+		spec.format   = (depth[track] == 16) ? SDL_AUDIO_S16LE : SDL_AUDIO_U8;
+		spec.channels = chans[track];
+		spec.freq     = (int)rate[track];
+		p->audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+		if (p->audioStream) {
+			p->uiAudioBytesPerSec = (uint64_t)rate[track]
+				* chans[track]
+				* (depth[track] == 16 ? 2 : 1);
+			SDL_ResumeAudioStreamDevice(p->audioStream);
+		} else {
+			std::fprintf(stderr, "[smk] SDL_OpenAudioDeviceStream failed for %s: %s\n", cFilename, SDL_GetError());
+			smk_enable_audio(p->smkHandle, (unsigned char)track, 0);
+			p->uiAudioRate = 0;
+		}
+	}
+
+	p->uiFlags     = SMK_FLIC_OPEN;
+	p->fFirstFrame = true;
+	return p;
+}
+
+SMKFLIC* SmkPlayFlic(const CHAR8* cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEAN fAutoClose)
+{
+	SMKFLIC* p = SmkOpenFlic(cFilename);
+	if (!p) return nullptr;
+	SmkSetBlitPosition(p, uiLeft, uiTop);
+	p->uiFlags |= SMK_FLIC_PLAYING;
+	if (fAutoClose) p->uiFlags |= SMK_FLIC_AUTOCLOSE;
+	return p;
+}
+
+void SmkSetBlitPosition(SMKFLIC* pSmack, UINT32 uiLeft, UINT32 uiTop)
+{
+	if (!pSmack) return;
+	pSmack->uiLeft = uiLeft;
+	pSmack->uiTop  = uiTop;
+}
+
+void SmkCloseFlic(SMKFLIC* pSmack)
+{
+	if (!pSmack) return;
+	if (pSmack->audioStream) {
+		// The stream owns the device since we used
+		// SDL_OpenAudioDeviceStream; destroying it releases both.
+		SDL_DestroyAudioStream(pSmack->audioStream);
+		pSmack->audioStream = nullptr;
+	}
+	pSmack->uiAudioRate       = 0;
+	pSmack->uiAudioChans      = 0;
+	pSmack->uiAudioBits       = 0;
+	pSmack->uiAudioBytesPush  = 0;
+	pSmack->uiAudioBytesPerSec = 0;
+	pSmack->uiFrameIndex      = 0;
+	pSmack->uiFrameStartNs    = 0;
+	if (pSmack->smkHandle) {
+		smk_close(pSmack->smkHandle);
+		pSmack->smkHandle = nullptr;
+	}
+	pSmack->rawFile.clear();
+	pSmack->rawFile.shrink_to_fit();
+	pSmack->uiFlags = 0;
+	pSmack->fFirstFrame = false;
+}
+
+// Hybrid pacing. Pure wall-clock drifted audio ahead by ~1s over a
+// long intro (audio device plays at its own rate, video paces from a
+// clock that includes per-tick processing overhead). Pure audio-clock
+// stalled completely when SDL's audio queue ran dry between frame
+// advances (consumed counter freezes when nothing's playing, so the
+// "wait until audio caught up" check never fires, so no new audio
+// gets pushed -- deadlock).
+//
+// Take the max of audio_clock_us and wall_clock_us:
+//   * audio_clock_us = (bytes the audio device has consumed) / rate.
+//     Truth-source when audio is flowing.
+//   * wall_clock_us = wall ns since the first frame painted.
+//     Keeps video advancing during audio-queue starvation. Also the
+//     only timer for SMKs that have no audio track.
+// Advance when either says we're past the next frame's deadline.
+static bool ShouldAdvanceFrame(const SMKFLIC& f, uint64_t nowNs)
+{
+	const double frame_deadline_us = (double)(f.uiFrameIndex + 1) * f.dUsecPerFrame;
+	if (f.audioStream && f.uiAudioBytesPerSec > 0) {
+		const int queued = SDL_GetAudioStreamQueued(f.audioStream);
+		const uint64_t consumed = (queued < 0 || (uint64_t)queued >= f.uiAudioBytesPush)
+		                            ? 0
+		                            : f.uiAudioBytesPush - (uint64_t)queued;
+		const double consumed_us = (double)consumed * 1e6 / (double)f.uiAudioBytesPerSec;
+		if (consumed_us >= frame_deadline_us) return true;
+	}
+	const uint64_t elapsed_ns = nowNs - f.uiFrameStartNs;
+	const double wall_us = (double)elapsed_ns / 1000.0;
+	return wall_us >= f.dUsecPerFrame;
+}
+
+BOOLEAN SmkPollFlics(void)
+{
+	bool any = false;
+	const uint64_t nowNs = NowNs();
+	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
+		SMKFLIC& f = gSmkList[i];
+		if (!(f.uiFlags & SMK_FLIC_PLAYING)) continue;
+		any = true;
+		if (gFsuspendFlics) continue;
+
+		// First poll: prime the decoder on frame 0 and draw it.
+		if (f.fFirstFrame) {
+			if (smk_first(f.smkHandle) < 0) {
+				std::fprintf(stderr, "[smk] smk_first failed\n");
+				if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+				continue;
 			}
-			vfs::COpenReadFile rfile(introname);
-			vfs::size_t size = rfile->getSize();
-			std::vector<vfs::Byte> data(size);
-			rfile->read(&data[0],size);
-
-			vfs::COpenWriteFile wfile(tempfile,true);
-			wfile->write(&data[0],size);
+			f.fFirstFrame    = false;
+			f.uiFrameStartNs = nowNs;
+			f.uiFrameIndex   = 0;
+			DecodeAndBlitCurrentFrame(f);
+			FeedCurrentFrameAudio(f);
+			continue;
 		}
-		catch(std::exception& ex)
-		{
-			SGP_RETHROW(_BS(L"Intro file \"") << filename << L"\" could not be extracted" << _BS::wget, ex);
+
+		if (!ShouldAdvanceFrame(f, nowNs)) continue;
+
+		const char rc = smk_next(f.smkHandle);
+		if (rc == SMK_DONE) {
+			// Reached the end. Loop or close depending on flags.
+			if (f.uiFlags & SMK_FLIC_LOOP) {
+				if (smk_first(f.smkHandle) < 0) {
+					if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+					continue;
+				}
+				f.uiFrameStartNs = nowNs;
+				f.uiFrameIndex   = 0;
+				DecodeAndBlitCurrentFrame(f);
+				FeedCurrentFrameAudio(f);
+			} else if (f.uiFlags & SMK_FLIC_AUTOCLOSE) {
+				SmkCloseFlic(&f);
+				// Slot freed; loop iteration handled, next loop sees uiFlags=0.
+			} else {
+				f.uiFlags &= ~SMK_FLIC_PLAYING;
+			}
+		} else if (rc < 0) {
+			std::fprintf(stderr, "[smk] smk_next failed\n");
+			if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+		} else {
+			f.uiFrameStartNs = nowNs;
+			++f.uiFrameIndex;
+			DecodeAndBlitCurrentFrame(f);
+			FeedCurrentFrameAudio(f);
 		}
 	}
 
-	// Allocate a Smacker buffer for video decompression
-	if(!(pSmack->SmackBuffer=SmackBufferOpen(hDisplayWindow,SMACKAUTOBLIT,SCREEN_WIDTH,SCREEN_HEIGHT,0,0)))
-	{
-		ErrorMsg("SMK ERROR: Can't allocate a Smacker decompression buffer");
-		return(NULL);
-	}
-//	if(!(pSmack->SmackHandle=SmackOpen(cFilename, SMACKTRACKS, SMACKAUTOEXTRA)))
-	vfs::Path tempfilename;
-	try
-	{
-		vfs::COpenWriteFile wfile(tempfile);
-		if(!wfile->_getRealPath(tempfilename))
-		{
-			return NULL;
-		}
-	}
-	catch(std::exception& ex)
-	{
-		SGP_RETHROW(L"Temporary intro file could not be read", ex);
-	}
-	if(!(pSmack->SmackHandle=SmackOpen(tempfilename.to_string().c_str(), SMACKTRACKS, SMACKAUTOEXTRA)))
-	{
-		ErrorMsg("SMK ERROR: Smacker won't open the SMK file");
-		return(NULL);
-	}
-
-	// Make sure we have a video surface
-	SmkSetupVideo();
-
-	pSmack->cFilename=cFilename;
-	pSmack->lpDDS=lpVideoPlayback2;
-	pSmack->hWindow=hDisplayWindow;
-
-	// Smack flic is now open and ready to go
-	pSmack->uiFlags|=SMK_FLIC_OPEN;
-
-	return(pSmack);
-}
-
-void SmkSetBlitPosition(SMKFLIC *pSmack, UINT32 uiLeft, UINT32 uiTop)
-{
-	pSmack->uiLeft=uiLeft;
-	pSmack->uiTop=uiTop;
-}
-
-void SmkCloseFlic(SMKFLIC *pSmack)
-{
-	// Attempt opening the filename
-	FileClose(pSmack->hFileHandle);
-
-	// Deallocate the smack buffers
-	SmackBufferClose(pSmack->SmackBuffer);
-
-	// Close the smack flic
-	SmackClose(pSmack->SmackHandle);
-
-	// Zero the memory, flags, etc.
-	memset(pSmack, 0, sizeof(SMKFLIC));
-}
-
-SMKFLIC *SmkGetFreeFlic(void)
-{
-	UINT32 uiCount;
-
-	for(uiCount=0; uiCount < SMK_NUM_FLICS; uiCount++)
-		if(!(SmkList[uiCount].uiFlags & SMK_FLIC_OPEN))
-			return(&SmkList[uiCount]);
-
-	return(NULL);
-}
-
-void SmkSetupVideo(void)
-{
-// DEF:
-//	lpVideoPlayback2 = CinematicModeOn();
-
-	HVSURFACE hVSurface;
-	GetVideoSurface( &hVSurface, FRAME_BUFFER );
-	lpVideoPlayback2 = GetVideoSurfaceDDSurface( hVSurface );
-
-	DDSURFACEDESC SurfaceDescription;
-	ZEROMEM(SurfaceDescription);
-	SurfaceDescription.dwSize = sizeof (DDSURFACEDESC);
-	HRESULT ReturnCode = IDirectDrawSurface2_GetSurfaceDesc ( lpVideoPlayback2, &SurfaceDescription );
-	if (ReturnCode != DD_OK)
-	{
-		DirectXAttempt ( ReturnCode, __LINE__, __FILE__ );
-		return;
-	}
-
-	UINT16 usRed, usGreen, usBlue;
-	usRed	= (UINT16) SurfaceDescription.ddpfPixelFormat.dwRBitMask;
-	usGreen = (UINT16) SurfaceDescription.ddpfPixelFormat.dwGBitMask;
-	usBlue	= (UINT16) SurfaceDescription.ddpfPixelFormat.dwBBitMask;
-
-	if((usRed==0xf800) && (usGreen==0x07e0) && (usBlue==0x001f))
-		guiSmackPixelFormat=SMACKBUFFER565;
-	else
-		guiSmackPixelFormat=SMACKBUFFER555;
-
-}
-
-void SmkShutdownVideo(void)
-{
-//DEF:
-//	CinematicModeOff();
+	return any ? TRUE : FALSE;
 }

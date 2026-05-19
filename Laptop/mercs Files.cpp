@@ -221,14 +221,15 @@ extern BOOLEAN fMercHireOverPlayerLimitMerc;
 // Buttons
 //
 
-// The Prev button
+// The Prev button. File-private to avoid name collision with the
+// same-named UI globals in Ja2/SaveLoadScreen.cpp.
 void BtnMercPrevButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiPrevButton;
+static UINT32	guiPrevButton;
 INT32		guiButtonImage;
 
 // The Next button
 void BtnMercNextButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiNextButton;
+static UINT32	guiNextButton;
 
 // The Hire button
 void BtnMercHireButtonCallback(GUI_BUTTON *btn,INT32 reason);
@@ -1775,7 +1776,7 @@ void MercWeaponKitSelectionUpdate(UINT8 selectedInventory)
 				// If it's armour
 				if ( Item[ usItem ].usItemClass & IC_ARMOUR )
 				{
-					gMercProfiles[ubMercID].bArmourAttractiveness = min(128,Armour[ Item[ usItem ].ubClassIndex ].ubProtection);
+					gMercProfiles[ubMercID].bArmourAttractiveness = std::min<int>(128, Armour[ Item[ usItem ].ubClassIndex ].ubProtection);
 				}
 			}
 		}

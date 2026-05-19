@@ -2,9 +2,7 @@
 	#include "types.h"
 	#include <stdio.h>
 	#include <stdarg.h>
-	#include <malloc.h>
-	#include <windows.h>
-	#include <stdarg.h>
+	#include <stdlib.h>
 	#include <wchar.h>
 	#include "sgp.h"
 	#include "pcx.h"
@@ -602,13 +600,17 @@ INT16 StringPixLength(const STR16 string, INT32 UseFont)
 	}
 
 	Cur=0;
-	curletter = (UINT16 *)string;
-
-	while((*curletter) != L'\0')
+	// NB: was '(UINT16*)string'. wchar_t is 16-bit on Windows but
+	// 32-bit on macOS/Linux, so casting a wchar_t string through
+	// UINT16* hits the high-byte zero of every wide char after the
+	// first and bails out of the loop. Iterate as CHAR16 (wchar_t)
+	// directly so the stride matches the actual element size.
+	for (const CHAR16* curletter16 = (const CHAR16*)string; *curletter16 != L'\0'; ++curletter16)
 	{
-		transletter=GetIndex(*curletter++);
-		Cur+=GetWidth(FontObjs[UseFont], transletter);
+		UINT16 transletter = GetIndex(*curletter16);
+		Cur += GetWidth(FontObjs[UseFont], transletter);
 	}
+	(void)curletter;
 	return((INT16)Cur);
 }
 
@@ -931,7 +933,7 @@ CHAR16 GetUnicodeChar(CHAR16 siChar)
 			//case 244:          siChar = 244;          break;	//?
 			//case 249:          siChar = 249;          break;	//?
 			//case 251:          siChar = 251;          break;	//?
-			//case 255:          siChar = 255;          break;	//я
+			//case 255:          siChar = 255;          break;	//пїЅ
 //inshy: italian letters
 			//case 204:          siChar = 204;          break;	//I'
 			//case 236:          siChar = 236;          break;	//i'
@@ -1886,7 +1888,7 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 1102; // ?
 	temp++;
-	*temp = 1103; // я
+	*temp = 1103; // пїЅ
 	temp++;
 
 	// BELORUSSIAN and UKRAINIAN letters in UNICODE
@@ -1936,23 +1938,23 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 377; // ?(zet)
 	temp++;
-	*temp = 261; // ?(он)
+	*temp = 261; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 263; // ?(це)
+	*temp = 263; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 281; // ?(эн)
+	*temp = 281; // ?(пїЅпїЅ)
 	temp++;
-	*temp = 322; // ?(эл?
+	*temp = 322; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 324; // ?(эн?
+	*temp = 324; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 243; // ?(?кратко?
+	*temp = 243; // ?(?пїЅпїЅпїЅпїЅпїЅпїЅ?
 	temp++;
-	*temp = 347; // ?(эс?
+	*temp = 347; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 380; // ?(же?
+	*temp = 380; // ?(пїЅпїЅ?
 	temp++;
-	*temp = 378; // ?(зе?
+	*temp = 378; // ?(пїЅпїЅ?
 	temp++;
 
 	// FRENCH and ITALIAN letters in UNICODE
@@ -2007,7 +2009,7 @@ FontTranslationTable *CreateEnglishTransTable(	)
 	temp++;
 	*temp = 251; //?
 	temp++;
-	*temp = 255; //я
+	*temp = 255; //пїЅ
 	temp++;
 //Italian letters
 	*temp = 204; //I'

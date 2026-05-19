@@ -205,7 +205,9 @@ UINT32	guiSlgSaveLoadBtn;
 INT32	guiSaveLoadImage;
 
 INT32 guiNewButtonImage;
-INT32 guiPrevButton, guiNextButton;
+// File-private to avoid a name collision with the same-named UI
+// globals in Laptop/mercs Files.cpp. Neither file extern's them.
+static INT32 guiPrevButton, guiNextButton;
 void BtnNewPrevButtonCallback(GUI_BUTTON *btn,INT32 reason);
 void BtnNewNextButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT16 PAGE_SLOT = 0;
@@ -1015,12 +1017,8 @@ void HandleSaveLoadScreen()
 void GetSaveLoadScreenUserInput()
 {
 	InputAtom Event;
-	POINT	MousePos;
 	INT8		bActiveTextField;
 	static BOOLEAN	fWasCtrlHeldDownLastFrame = FALSE;
-
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
 
 	//if we are going to be instantly leaving the screen, dont draw the numbers
 	if( gfLoadGameUponEntry )
@@ -1342,6 +1340,7 @@ BOOLEAN InitSaveGameArray()
 			{
 				gbSaveGameArray[VAL_SLOT_START + cnt] = TRUE;
 
+#ifdef _WIN32
 				// anv: read last modified date property of save file
 				// get full path to save file
 				vfs::Path vfsPath;
@@ -1361,6 +1360,10 @@ BOOLEAN InitSaveGameArray()
 				// close
 				CloseHandle( hFile );
 				rfile->close();
+#else
+				// TODO: portable mtime via stat(); for now leave the array zero.
+				(void)0;
+#endif
 			}
 		}
 		else

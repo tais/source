@@ -1309,8 +1309,13 @@ MERCPROFILESTRUCT& MERCPROFILESTRUCT::operator=(const OLD_MERCPROFILESTRUCT_101&
 		CopyOldInventoryToNew( src );
 
 		//arrays
-		memcpy( &(this->zName), &(src.zName), sizeof(CHAR16)* NAME_LENGTH );
-		memcpy( &(this->zNickname), &(src.zNickname), sizeof(CHAR16)* NICKNAME_LENGTH );
+		// On-disk OLD struct stores 16-bit chars (matches Win32 wchar_t); our
+		// in-memory CHAR16 is wchar_t which is 32-bit on macOS/Linux. Widen
+		// per character rather than memcpy'ing the raw 16-bit data.
+		for ( int i = 0; i < NAME_LENGTH; ++i )
+			this->zName[i] = (CHAR16)src.zName[i];
+		for ( int i = 0; i < NICKNAME_LENGTH; ++i )
+			this->zNickname[i] = (CHAR16)src.zNickname[i];
 		memcpy( &(this->PANTS), &(src.PANTS), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->VEST), &(src.VEST), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->SKIN), &(src.SKIN), sizeof(PaletteRepID) );	// 30
@@ -1704,7 +1709,7 @@ BOOLEAN gfCalcTranslucency = FALSE;
 
 INT16		gsFullTileDirections[MAX_FULLTILE_DIRECTIONS] =
 {
-	-1, -WORLD_COLS - 1, -WORLD_COLS
+	(INT16)-1, (INT16)(-WORLD_COLS - 1), (INT16)-WORLD_COLS
 
 };
 
@@ -2446,7 +2451,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 
 	if ( this->ubBodyType == QUEENMONSTER )
 	{
-		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)this, QUEEN_AMBIENT_NOISE, 15 );
+		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)(uintptr_t)this, QUEEN_AMBIENT_NOISE, 15 );
 	}
 
 
@@ -8643,7 +8648,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(this->p8BPPPalette) * 256 );
+			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
 			// Substitute based on head, etc
 			SetPaletteReplacement( this->p8BPPPalette, this->HeadPal );
@@ -8655,7 +8660,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 	else if ( bBodyTypePalette == 0 )
 	{
 		// Use palette from hvobject
-		memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(this->p8BPPPalette) * 256 );
+		memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 	}
 	else
 	{
@@ -8663,12 +8668,12 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 		if ( CreateSGPPaletteFromCOLFile( Temp8BPPPalette, zColFilename ) )
 		{
 			// Copy into palette
-			memcpy( this->p8BPPPalette, Temp8BPPPalette, sizeof(this->p8BPPPalette) * 256 );
+			memcpy( this->p8BPPPalette, Temp8BPPPalette, sizeof(SGPPaletteEntry) * 256 );
 		}
 		else
 		{
 			// Use palette from hvobject
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(this->p8BPPPalette) * 256 );
+			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 		}
 	}
 
@@ -16362,7 +16367,7 @@ void	SOLDIERTYPE::Strip()
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(this->p8BPPPalette) * 256 );
+			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
 			SetPaletteReplacement( this->p8BPPPalette, this->HeadPal );
 			SetPaletteReplacement( this->p8BPPPalette, this->VestPal );

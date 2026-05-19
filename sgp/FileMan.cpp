@@ -26,17 +26,12 @@
 //**************************************************************************
 	#include "types.h"
 	#include <stdlib.h>
-	#include <malloc.h>
 	#include <stdio.h>
-	#include <direct.h>
-	
 
-	#include "windows.h"
 	#include "FileMan.h"
 	#include "MemMan.h"
 	#include "DEBUG.H"
 	#include "LibraryDataBase.h"
-	#include "io.h"
 	#include "sgp_logger.h"
 
 using namespace std;
@@ -307,7 +302,7 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 			pFile = &open_w.file();
 			open_w.release();
 			s_mapFiles[pFile].op = SOperation::WRITE;
-			return (HWFILE)pFile;
+			return (HWFILE)(uintptr_t)pFile;
 		}
 		else if(uiOptions & FILE_ACCESS_READ)
 		{
@@ -324,7 +319,7 @@ HWFILE FileOpen( STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose, STR 
 				open_r.release();
 			}
 			s_mapFiles[pFile].op = SOperation::READ;
-			return (HWFILE)pFile;
+			return (HWFILE)(uintptr_t)pFile;
 		}
 	}
 	// sometimes a file is supposed to opened that does not exist (not tested with FileExists())
@@ -601,14 +596,14 @@ BOOLEAN FileLoad( STR strFilename, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiB
 #endif
 
 
-BOOLEAN _cdecl FilePrintf( HWFILE hFile, STR8	strFormatted, ... )
+BOOLEAN FilePrintf( HWFILE hFile, STR8	strFormatted, ... )
 {
 	CHAR8		strToSend[160]; /* itemdescription of item 0 will NOT fit if only 80 Chars per Line!, Sergeant_Kolja, 2007-06-10 */
 	va_list	argptr;
 	BOOLEAN fRetVal = FALSE;
 
 	va_start(argptr, strFormatted);
-	_vsnprintf( strToSend, DIM(strToSend), strFormatted, argptr ); /* made StringLen Save, Sergeant_Kolja, 2007-06-10 */
+	vsnprintf( strToSend, DIM(strToSend), strFormatted, argptr ); /* made StringLen Save, Sergeant_Kolja, 2007-06-10 */
 	strToSend[ DIM(strToSend)-1 ] = 0;
 	va_end(argptr);
 	

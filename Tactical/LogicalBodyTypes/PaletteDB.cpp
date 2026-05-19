@@ -1,5 +1,7 @@
 #include "PaletteDB.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcmp/memset/memcpy the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 PaletteDB::PaletteDB(void) : AbstractXMLLoader(StartElementHandle, EndElementHandle, CharacterDataHandle) {
@@ -91,7 +93,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 	// Use col file
 	if (CreateSGPPaletteFromCOLFile(Temp8BPPPalette, zColFilename)) {
 		// Copy into palette
-		memcpy(this->p8BPPPalette, Temp8BPPPalette, sizeof( this->p8BPPPalette ) * 256);
+		memcpy(this->p8BPPPalette, Temp8BPPPalette, sizeof(SGPPaletteEntry) * 256);
 	} else {
 	}
 

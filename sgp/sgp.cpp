@@ -1,9 +1,17 @@
 /* $Id: sgp.c,v 1.4 2004/03/19 06:16:04 digicrab Exp $ */
-//its test what doeas it do?
+// SGP entry point. Portable SDL3 main() replaces the Win32 WinMain +
+// window class + message pump that lived here pre-port; the
+// DirectDraw video manager + WinFont GDI text + cnc-ddraw detection
+// they fed have all been retired in earlier phases. The body below
+// runs on every platform: subsystem init, SDL_PollEvent driven
+// game-loop pump, shutdown.
 #include "builddefines.h"
 #include "types.h"
-#include <windows.h>
+
+#include <SDL3/SDL.h>
 #include <string.h>
+#include <cstdio>
+#include <csignal>
 #include "sgp.h"
 #include "vobject.h"
 #include "Font.h"
@@ -17,7 +25,8 @@
 #include "Timer Control.h"
 #include "Utilities.h"
 #include "GameSettings.h"
-#include "zmouse.h"
+#include "video.h"
+#include "sdl_input.h"
 #include <vfs/Aspects/vfs_settings.h>
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
@@ -27,20 +36,14 @@
 #include "Text.h"
 #include "ExportStrings.h"
 #include "ImportStrings.h"
-#include <excpt.h>
 #include "INIReader.h"
 #include "connect.h"
-#include "wine.h"
 #include "Intro.h"
 #include <Music Control.h>
 #include <language.hpp>
 
 
 #define USE_CONSOLE 0
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 
 
 static void MAGIC(std::string const& aarrrrgggh = "")
@@ -110,27 +113,20 @@ extern	BOOLEAN		CheckIfGameCdromIsInCDromDrive();
 extern	void		QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 
 // Prototype Declarations
-INT32 FAR PASCAL	WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam);
-BOOLEAN				InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow);
-void				ShutdownStandardGamingPlatform(void);
-void				GetRuntimeSettings( );
+BOOLEAN InitializeStandardGamingPlatform(void);
+void    ShutdownStandardGamingPlatform(void);
+void    GetRuntimeSettings(void);
+void    SafeSGPExit(void);
 
+static void PopulateSectionFromCommandLine(vfs::PropertyContainer& oProps, vfs::String const& sSection, int argc, char** argv);
+static bool CallGameLoop(bool wait);
 
-INT32 FAR PASCAL	SyncWindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam);
-void				CreateStandardGamingPlatform(HWND hWindow);
-void				SafeSGPExit(void);
-static bool			CallGameLoop(bool wait);
-static CRITICAL_SECTION gcsGameLoop;
+#include <mutex>
+static std::mutex gGameLoopMutex;
 
-
-
-int PASCAL HandledWinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR pCommandLine, int sCommandShow);
-
-
-
-static void PopulateSectionFromCommandLine(vfs::PropertyContainer &oProps, vfs::String const& sSection);
-
-HINSTANCE			ghInstance;
+// Argv cached for PopulateSectionFromCommandLine.
+static int    g_argc = 0;
+static char** g_argv = nullptr;
 
 
 	void ProcessJa2CommandLineBeforeInitialization(CHAR8 *pCommandLine);
@@ -158,16 +154,6 @@ CHAR8				gzErrorMsg[2048]="";
 BOOLEAN				gfIgnoreMessages=FALSE;
 
 
-INT32 FAR PASCAL SyncWindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam)
-{
-	INT32 retval;
-	EnterCriticalSection(&gcsGameLoop);
-	retval = WindowProcedure(hWindow, Message, wParam, lParam);
-	LeaveCriticalSection(&gcsGameLoop);
-	return retval;
-}
-
-
 bool				s_bExportStrings		= false;
 extern bool			g_bUseXML_Strings;//	= false;
 bool				g_bUseXML_Structures	= false;
@@ -175,6 +161,11 @@ bool				g_bUseXML_Structures	= false;
 
 static vfs::Path	sp_force_load_jsd_xml_file;
 
+// WindowProcedure + SyncWindowProcedure deleted: SDL_PollEvent in
+// main() does what the Win32 message pump did. CreateStandardGamingPlatform
+// (the WM_CREATE handler) also gone -- its single body call lives
+// directly in main() now.
+#if 0
 INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LPARAM lParam)
 {
 	static BOOLEAN fRestore = FALSE;
@@ -370,8 +361,9 @@ INT32 FAR PASCAL WindowProcedure(HWND hWindow, UINT16 Message, WPARAM wParam, LP
 	}
 	return 0L;
 }
+#endif // 0 (WindowProcedure deleted)
 
-BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
+BOOLEAN InitializeStandardGamingPlatform(void)
 {
 	FontTranslationTable *pFontTable;
 
@@ -415,12 +407,11 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 		return FALSE;
 	}
 
-	InitializeCriticalSection(&gcsGameLoop);
-
+	// gcsGameLoop replaced by gGameLoopMutex (std::mutex) -- no
+	// init required.
 
 	FastDebugMsg("Initializing Video Manager");
-	// Initialize DirectDraw (DirectX 2)
-	if (InitializeVideoManager(hInstance, (UINT16) sCommandShow, (void *) WindowProcedure) == FALSE)
+	if (InitializeVideoManager() == FALSE)
 	{
 		// We were unable to initialize the video manager
 		FastDebugMsg("FAILED : Initializing Video Manager");
@@ -527,9 +518,8 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
 		return FALSE;
 	}
 
-	// Register mouse wheel message
-	guiMouseWheelMsg = RegisterWindowMessage( MSH_MOUSEWHEEL );
-
+	// SDL_PollEvent surfaces wheel events natively as SDL_EVENT_MOUSE_WHEEL;
+	// no Win32 RegisterWindowMessage needed.
 	gfGameInitialized = TRUE;
 
 	return TRUE;
@@ -544,14 +534,17 @@ static void TimerActivatedCallback(INT32 timer, PTR state)
 	}
 }
 
-void CreateStandardGamingPlatform(HWND hWindow)
+// CreateStandardGamingPlatform was the WM_CREATE handler that started
+// the JA2 clock and (in non-hispeed mode) set up a Win32 SetTimer.
+// Replaced with a direct InitializeJA2Clock() + notify-callback wire
+// inline in main() -- SetTimer/KillTimer have no SDL3 equivalent
+// because the SDL_PollEvent loop runs the game loop directly each
+// iteration.
+static void StartJA2ClockPlatform()
 {
 	InitializeJA2Clock();
-
-	if (!IsHiSpeedClockMode())
-		SetTimer( hWindow, 0, 1, NULL);
-	else
-		AddTimerNotifyCallback(TimerActivatedCallback, hWindow);
+	if (IsHiSpeedClockMode())
+		AddTimerNotifyCallback(TimerActivatedCallback, nullptr);
 }
 
 
@@ -580,7 +573,7 @@ void ShutdownStandardGamingPlatform(void)
 	DestroyEnglishTransTable( );	// has to go before ShutdownFontManager()
 	ShutdownFontManager();
 
-	ShutdownClockManager();	// must shutdown before VideoManager, 'cause it uses ghWindow
+	ShutdownClockManager();
 
 #ifdef SGP_VIDEO_DEBUGGING
 	PerformVideoInfoDumpIntoFile( "SGPVideoShutdownDump.txt", FALSE );
@@ -603,8 +596,6 @@ void ShutdownStandardGamingPlatform(void)
 	// Make sure we unregister the last remaining debug topic before shutting
 	// down the debugging layer
 	UnRegisterDebugTopic(TOPIC_SGP, "Standard Gaming Platform");
-
-	DeleteCriticalSection(&gcsGameLoop);
 
 	ShutdownDebugManager();
 
@@ -681,6 +672,11 @@ private:
 //	}
 //};
 
+// WinMain + HandledWinMain entirely deleted: the portable main() at
+// the bottom of this file does the same work driven off of
+// SDL_PollEvent. Bodies preserved in #if 0 for archeological
+// reference; remove in a follow-up cleanup once nobody misses them.
+#if 0
 int PASCAL WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR pCommandLine, int sCommandShow)
 {
 #ifdef _DEBUG
@@ -731,17 +727,9 @@ int PASCAL HandledWinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR pC
 	HWND			hPrevInstanceWindow;
 	UINT32			uiTimer = 0;
 
-	// Make sure the game works out of the box on Linux/macOS/Android (WINE)
-	if (wine_add_dll_overrides())
-	{
-		/* newly added dll overrides only work after a restart */
-		char exe_path[MAX_PATH] = { 0 };
-		GetModuleFileNameA(NULL, exe_path, _countof(exe_path));
-
-		ShellExecuteA(NULL, "open", exe_path, pCommandLine, NULL, sCommandShow);
-		return 0;
-	}
-
+	// The Wine cnc-ddraw override dance is gone -- SDL3 replaces
+	// DirectDraw on every platform, so there is nothing left to coax
+	// Wine into preferring.
 	vfs::Log::setSharedString( getGameID() );
 	//if(!vfs::Aspects::getMutexFactory())
 	//{
@@ -906,6 +894,7 @@ int PASCAL HandledWinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR pC
 	// return wParam of the last message received
 	return Message.wParam;
 }
+#endif // 0 (WinMain/HandledWinMain deleted)
 
 
 void SGPExit(void)
@@ -920,28 +909,26 @@ void SGPExit(void)
 	fAlreadyExiting = TRUE;
 	gfProgramIsRunning = FALSE;
 
-// Wizardry only
-
 	ShutdownStandardGamingPlatform();
-//	ShowCursor(TRUE);
 	if(strlen(gzErrorMsg))
 	{
-		MessageBox(NULL, gzErrorMsg, "Error", MB_OK | MB_ICONERROR	);
+		// SDL3 has no portable native message box surface that's worth
+		// wiring up for a fatal-error popup; print to stderr and let
+		// stdout/stderr capture do the rest.
+		std::fprintf(stderr, "ERROR: %s\n", gzErrorMsg);
 	}
-
-
 }
 
 void GetRuntimeSettings( )
 {
 	int		iMaximize;
 
-	/* Detect cnc-ddraw and disable windowed mode */
-	BOOL bCncDdraw = GetProcAddress(GetModuleHandleW(L"ddraw.dll"), "GameHandlesClose") != NULL;
-	
+	// cnc-ddraw detection retired -- SDL3 owns presentation; nothing
+	// to coax a Wine ddraw shim into preferring.
+
 	vfs::PropertyContainer oProps;
 	oProps.initFromIniFile(GAME_INI_FILE);
-	PopulateSectionFromCommandLine(oProps, "Ja2 Settings");
+	PopulateSectionFromCommandLine(oProps, "Ja2 Settings", g_argc, g_argv);
 	
 	vfs::String loc = oProps.getStringProperty("Ja2 Settings", L"LOCALE");
 	if(!loc.empty())
@@ -955,7 +942,7 @@ void GetRuntimeSettings( )
 	//iMaximize = (int)oProps.getIntProperty(L"Ja2 Settings", L"SCREEN_MODE_WINDOWED_MAXIMIZE", -1);
 	iMaximize = 1;
 	
-	iWindowedMode = bCncDdraw ? 0 : (int)oProps.getIntProperty(L"Ja2 Settings", L"SCREEN_MODE_WINDOWED", -1);
+	iWindowedMode = (int)oProps.getIntProperty(L"Ja2 Settings", L"SCREEN_MODE_WINDOWED", -1);
 
 	vfs::Settings::setUseUnicode( !oProps.getBoolProperty(L"Ja2 Settings", L"VFS_NO_UNICODE", false) );
 
@@ -1189,7 +1176,7 @@ void GetRuntimeSettings( )
 	/* 1 for Windowed, 0 for Fullscreen */
 	if( !bScreenModeCmdLine )
 	{
-		iScreenMode = bCncDdraw ? 0 : (int)oProps.getIntProperty("Ja2 Settings","SCREEN_MODE_WINDOWED", iScreenMode);
+		iScreenMode = (int)oProps.getIntProperty("Ja2 Settings","SCREEN_MODE_WINDOWED", iScreenMode);
 	}
 
 	// WANNE: Should we play the intro?
@@ -1212,15 +1199,20 @@ void GetRuntimeSettings( )
 
 void SafeSGPExit(void)
 {
-	// SGPExit tends to use resources that are already uninitialized so handle 
-	__try
+	// SGPExit tends to use resources that are already uninitialised --
+	// catch anything that escapes so atexit() runs to completion. The
+	// Win32 __try/__except SEH this used to wrap caught structured
+	// exceptions (access violations etc.); the C++ try/catch below
+	// only catches thrown C++ exceptions. That's the best a portable
+	// build can do; once we have SDL_SetSignalHandler / sigaction
+	// fanout we can rebuild the SEH-equivalent for fatal signals.
+	try
 	{
 		SGPExit();
 	}
-	__except( EXCEPTION_EXECUTE_HANDLER )
+	catch (...)
 	{
-		// The application is in exit and best effort to clean up 
-		//  has failed so just ignore and continue silently
+		// Ignore -- best-effort cleanup.
 	}
 }
 
@@ -1281,66 +1273,48 @@ void ProcessJa2CommandLineBeforeInitialization(CHAR8 *pCommandLine)
 	MemFree(pCopy);
 }
 
-static void PopulateSectionFromCommandLine(vfs::PropertyContainer &oProps, vfs::String const& sSection)
+// Portable argv parser. Same semantics as the legacy Win32-only
+// version: any argument starting with '-' or '/' becomes a property
+// key, optionally followed by '=' / ':' value, or the next arg if it
+// doesn't itself start with '-' / '/'. Argv strings are widened to
+// vfs::String for the property container which keys on wide chars.
+static void PopulateSectionFromCommandLine(vfs::PropertyContainer& oProps,
+                                           vfs::String const& sSection,
+                                           int argc, char** argv)
 {
-	const wchar_t* lpCommandLine = GetCommandLineW();
-	int argc = 0, nchars = 0;
-	ParseCommandLine( lpCommandLine, NULL, NULL, &argc, &nchars);
-	wchar_t **argv = (wchar_t **)_alloca(argc * sizeof(wchar_t *) + nchars * sizeof(wchar_t));
-	ParseCommandLine( lpCommandLine, argv, (wchar_t *)(((char*)argv) + argc * sizeof(wchar_t*)), &argc, &nchars);
-
-	for (int i = 1; i < argc; i++)
+	auto isOpt = [](const char* s) {
+		return s && (s[0] == '-' || s[0] == '/');
+	};
+	for (int i = 1; i < argc; ++i)
 	{
-		wchar_t *arg = argv[i];
-		if (arg == NULL)
-			continue;
-		if (arg[0] == L'-' || arg[0] == L'/')
-		{
-			wchar_t *pkey = arg+1;
-			wchar_t *psep = wcspbrk(arg, L":=");
-			wchar_t *param = (psep ? psep+1 : NULL);
-			if (psep) *psep = 0;
-			if ( (param == NULL || param[0] == 0) && ( i+1<argc && argv[i+1] && ( argv[i+1][0] != L'-' && argv[i+1][0] != L'/' ) ) )//dnl ch79 291113
-			{
-				param = argv[++i];
-				argv[i] = NULL;
-			}
-			if (param != NULL)
-			{
-				oProps.setStringProperty(sSection, pkey, param);
-			}
+		char* arg = argv[i];
+		if (!arg) continue;
+		if (!isOpt(arg)) continue;
+
+		std::string raw(arg + 1);
+		std::string key, value;
+		size_t sep = raw.find_first_of(":=");
+		if (sep != std::string::npos) {
+			key   = raw.substr(0, sep);
+			value = raw.substr(sep + 1);
+		} else {
+			key = raw;
+		}
+		if (value.empty() && i + 1 < argc && argv[i + 1] && !isOpt(argv[i + 1])) {
+			value = argv[++i];
+		}
+		if (!value.empty()) {
+			oProps.setStringProperty(sSection,
+			                         vfs::String(key.c_str()),
+			                         vfs::String(value.c_str()));
 		}
 	}
 }
 
-static LONG __stdcall SGPExceptionFilter(int exceptionCount, EXCEPTION_POINTERS* pExceptInfo)
-{
-#ifdef ENABLE_EXCEPTION_HANDLING
-	extern BOOL ERGetFirstModuleException(EXCEPTION_POINTERS*, HMODULE, LPSTR, INT, LPSTR, INT, INT *);
-	extern STR GetExceptionString( DWORD uiExceptionCode );
-	CHAR funcName[64], sourceName[MAX_PATH];
-	INT lineNum = 0;
-	if (exceptionCount >= 1)
-	{
-		bool showAssert = true;
-		__try{
-			// the exception handler writer can fail with exceptions too
-			RecordExceptionInfo(pExceptInfo);
-
-			LPCSTR exceptMsg = GetExceptionString(pExceptInfo->ExceptionRecord->ExceptionCode);
-			if ( ERGetFirstModuleException(pExceptInfo, NULL, funcName, _countof(funcName), sourceName, _countof(sourceName), &lineNum ) )
-			{
-				_FailMessage(exceptMsg, lineNum, funcName, sourceName);
-				showAssert = false;
-			}
-		} __except (EXCEPTION_EXECUTE_HANDLER) {}
-		if (showAssert) AssertMsg(FALSE, "Unhanded exception processing GameLoop unable to recover.");
-	}
-
-#endif
-
-	return EXCEPTION_EXECUTE_HANDLER;
-}
+// SGPExceptionFilter retired: Win32 SEH only, replaced by the C++
+// try/catch in CallGameLoop. Recovering from access violations
+// portably wants a signal handler hooked up via SDL_SetSignalHandler;
+// that's a future cleanup.
 
 static void SGPGameLoop()
 {
@@ -1350,22 +1324,26 @@ static void SGPGameLoop()
 	}
 	catch(sgp::Exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] sgp::Exception: %s\n", ex.what()); std::fflush(stderr);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(vfs::Exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] vfs::Exception: %s\n", ex.what()); std::fflush(stderr);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
 	}
 	catch(std::exception &ex)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] std::exception: %s\n", ex.what()); std::fflush(stderr);
 		sgp::Exception nex(ex.what());
 		SGP_ERROR(nex.what());
 		SHOWEXCEPTION(nex);
 	}
 	catch(const char* msg)
 	{
+		std::fprintf(stderr, "[SGPGameLoop] const char*: %s\n", msg); std::fflush(stderr);
 		sgp::Exception ex(msg);
 		SGP_ERROR(ex.what());
 		SHOWEXCEPTION(ex);
@@ -1375,36 +1353,109 @@ static void SGPGameLoop()
 static bool CallGameLoop(bool wait)
 {
 	static int numUnsuccessfulTries = 0;
-	if (wait)
-	{
-		EnterCriticalSection(&gcsGameLoop);
-	}
-	else
-	{
-		if ( !TryEnterCriticalSection(&gcsGameLoop) )
-			return false;
+
+	std::unique_lock<std::mutex> lk(gGameLoopMutex, std::defer_lock);
+	if (wait) {
+		lk.lock();
+	} else {
+		if (!lk.try_lock()) return false;
 	}
 
-	__try
-	{
-		__try
-		{
-			SGPGameLoop();
-			numUnsuccessfulTries = 0;
-		}
-		__except( SGPExceptionFilter(++numUnsuccessfulTries, GetExceptionInformation()) )
-		{
-		}
+	try {
+		SGPGameLoop();
+		numUnsuccessfulTries = 0;
 	}
-	__finally
-	{
-		LeaveCriticalSection(&gcsGameLoop);
+	catch (std::exception& ex) {
+		std::fprintf(stderr, "[CallGameLoop] std::exception: %s\n", ex.what()); std::fflush(stderr);
+		++numUnsuccessfulTries;
+	}
+	catch (const char* msg) {
+		std::fprintf(stderr, "[CallGameLoop] const char* exception: %s\n", msg); std::fflush(stderr);
+		++numUnsuccessfulTries;
+	}
+	catch (...) {
+		std::fprintf(stderr, "[CallGameLoop] unknown exception type\n"); std::fflush(stderr);
+		++numUnsuccessfulTries;
 	}
 
-	// Give it several attempts to recover from random exceptions and to display error screen
+	// Give it several attempts to recover before bailing.
 	if (numUnsuccessfulTries > 5)
 		ShutdownWithErrorBox("Unhandled exception. Unable to recover.");
 
 	return true;
 }
 
+// Portable entry point. Replaces WinMain + the SDL_PollEvent stub
+// main that lived under #ifndef _WIN32. SDL3 ships SDL_main.h on
+// Windows, so this same `int main(int, char**)` runs as a real
+// SDL_main on every platform.
+int main(int argc, char** argv)
+{
+	g_argc = argc;
+	g_argv = argv;
+
+	// Stitch argv back into a single command-line string for legacy
+	// helpers (ProcessJa2CommandLineBeforeInitialization).
+	std::string cmdline;
+	for (int i = 1; i < argc; ++i) {
+		if (!cmdline.empty()) cmdline += ' ';
+		cmdline += argv[i];
+	}
+
+	// Make Ctrl+C / SIGTERM tear the game down cleanly instead of
+	// requiring a force-quit if the SDL3 window stops responding.
+	std::signal(SIGINT,  [](int){ gfProgramIsRunning = FALSE; });
+	std::signal(SIGTERM, [](int){ gfProgramIsRunning = FALSE; });
+
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	FastDebugMsg("Initializing Random");
+	InitializeRandom();
+
+	strncpy(gzCommandLine, cmdline.c_str(), 99);
+	gzCommandLine[99] = '\0';
+	ProcessJa2CommandLineBeforeInitialization((CHAR8*)cmdline.c_str());
+
+	if (!HandleJA2CDCheck()) return 0;
+
+	try {
+		if (!InitializeStandardGamingPlatform()) return 0;
+	}
+	HANDLE_FATAL_ERROR
+
+	vfs::Log::flushReleaseAll();
+
+	if (g_lang == i18n::Lang::en) {
+		try { SetIntroType(INTRO_SPLASH); }
+		HANDLE_FATAL_ERROR
+	}
+
+	gfApplicationActive = TRUE;
+	gfProgramIsRunning  = TRUE;
+	FastDebugMsg("Running Game");
+
+	StartJA2ClockPlatform();
+
+	// SDL_PollEvent + CallGameLoop drives the same loop the Win32
+	// message pump used to: events feed input.cpp's queue (via
+	// SgpHandleSDLEvent), CallGameLoop runs one tick of game logic
+	// each iteration. The video manager's RefreshScreen presents.
+	while (gfProgramIsRunning) {
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			if (SgpHandleSDLEvent(&event)) {
+				gfProgramIsRunning = FALSE;
+			}
+		}
+		if (gfApplicationActive && gfProgramIsRunning) {
+			CallGameLoop(true);
+		}
+	}
+
+	FastDebugMsg("Exiting Game");
+	// SGPExit() runs via atexit() registered in InitializeStandardGamingPlatform.
+	return 0;
+}

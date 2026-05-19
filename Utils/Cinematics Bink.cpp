@@ -1,11 +1,15 @@
 #include "types.h"
+
+#ifdef _WIN32
+// The Bink cinematic player is built on Win32 file/sound/graphics
+// APIs (io.h, share.h, ddraw.h, SMACK.H, Mss.h). Gated to Windows
+// until Phase 8 replaces it.
 #include <stdio.h>
 #include <io.h>
 #include <string.h>
 #include <fcntl.h>
 #include <share.h>
 #include <sys/stat.h>
-#include <malloc.h>
 #include <stdlib.h>
 
 #include "DEBUG.H"
@@ -28,8 +32,6 @@
 
 
 
-
-#include <crtdbg.h>
 
 
 
@@ -413,3 +415,17 @@ UINT16 GetNumberOfBits( UINT32 uiMask )
 void				BinkShutdownVideo(void)
 {
 }
+#else // !_WIN32
+
+// Non-Windows: no Bink support. JA2 ships no .BIK files so the
+// VideoPlayer state machine in Intro.cpp never actually exercises
+// these. Stubs so it links.
+#include "Cinematics Bink.h"
+
+void     BinkInitialize(void*, UINT32, UINT32) {}
+BOOLEAN  BinkPollFlics(void) { return FALSE; }
+void     BinkCloseFlic(BINKFLIC*) {}
+void     BinkShutdownVideo(void) {}
+BINKFLIC* BinkPlayFlic(const CHAR8*, UINT32, UINT32, UINT32) { return nullptr; }
+
+#endif // _WIN32

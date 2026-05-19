@@ -60,6 +60,7 @@ CIniReader::CIniReader(const STR8	szFileName)
 		}
 	}
 	// check for override file
+#ifdef _WIN32
 	{
 		CHAR8 OvrFileName[256], Drive[128], Dir[128], Name[128], Ext[128];
 		_splitpath(szFileName, Drive, Dir, Name, Ext);
@@ -67,6 +68,7 @@ CIniReader::CIniReader(const STR8	szFileName)
 		if(getVFS()->fileExists(OvrFileName))
 			m_oProps.initFromIniFile(vfs::Path(OvrFileName));
 	}
+#endif
 }
 
 CIniReader::CIniReader(const STR8	szFileName, BOOLEAN Force_Custom_Data_Path)
@@ -285,7 +287,7 @@ BOOLEAN CIniReader::ReadBoolean(const STR8 szSection, const STR8 szKey, bool def
 //	memset(test_ini_string, 0x00, 255);
 //	iniReader.ReadString("JA2 Game Settings" , "TEST_STRING" , "default string" , test_ini_string , 255 );
 
-void CIniReader::ReadString(const STR8 szSection, const STR8 szKey, const STR8 szDefaultValue, STR8 input_buffer, size_t buffer_size)
+void CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, STR8 input_buffer, size_t buffer_size)
 {
 	std::string s = m_oProps.getStringProperty(szSection, szKey, szDefaultValue).utf8();
 	int len = std::min<unsigned int>(s.length(),buffer_size-1);
@@ -294,7 +296,7 @@ void CIniReader::ReadString(const STR8 szSection, const STR8 szKey, const STR8 s
 }
 
 // WANNE - MP: Old version, currently used by Multiplayer
-STR8	CIniReader::ReadString(const STR8	szSection, const STR8	szKey, const STR8	szDefaultValue)
+STR8	CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue)
 {
 	// >>>>> Memory Leak <<<<<
 	STR8	szResult = new char[255];

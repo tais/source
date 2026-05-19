@@ -20,26 +20,22 @@
 
 
 
+#include <cstdint>			// fixed-width integer types
 #include <wchar.h>			// for wide-character strings
+#include "msvc_compat.h"	// portable shims for MSVC-only names
 
 // *** SIR-TECH TYPE DEFINITIONS ***
 
-// These two types are defined by VC6 and were causing redefinition
-// problems, but JA2 is compiled with VC5
-
-// HEY WIZARDRY DUDES, JA2 ISN'T THE ONLY PROGRAM WE COMPILE! :-)
-
-typedef unsigned int		UINT32;
-typedef signed __int64		INT64;		// WANNE - BMP: Used for Big Maps
-typedef signed int			INT32;
-typedef unsigned __int64	UINT64;
-//typedef unsigned long long	UINT128;  //Madd:  Doing away with this redundant type
+typedef uint32_t	UINT32;
+typedef int64_t		INT64;		// WANNE - BMP: Used for Big Maps
+typedef int32_t		INT32;
+typedef uint64_t	UINT64;
 
 // integers
-typedef unsigned char	UINT8;
-typedef signed char		INT8;
-typedef unsigned short	UINT16;
-typedef signed short	INT16;
+typedef uint8_t		UINT8;
+typedef int8_t		INT8;
+typedef uint16_t	UINT16;
+typedef int16_t		INT16;
 // floats
 typedef float			FLOAT;
 typedef double			DOUBLE;
@@ -60,7 +56,14 @@ typedef void *			PTR;
 typedef unsigned short	HNDL;
 typedef UINT8			BYTE;
 typedef CHAR8			STRING512[512];
-typedef UINT32			HWFILE;
+// HWFILE has historically been UINT32 -- that worked when the VFS
+// backend in FileMan.cpp packed a 32-bit handle, but the SGP layer now
+// stores a vfs::IBaseFile* in it, which is 64 bits on every modern
+// target. Widen to uintptr_t to stop the cast from truncating real
+// pointers and segfaulting in FileClose. The legacy bit-packed
+// LibraryDataBase usage (lower 22 bits = file id, rest = library id)
+// continues to work since uintptr_t is also an integer type.
+typedef uintptr_t		HWFILE;
 
 #define SGPFILENAME_LEN 100
 typedef CHAR8 SGPFILENAME[SGPFILENAME_LEN];	
@@ -97,6 +100,15 @@ typedef struct
 	INT32 height;
 
 } SGPRectangle;
+
+#ifndef _WIN32
+// Portable equivalent of Win32 POINT struct for non-Windows builds.
+typedef struct
+{
+	INT32 x;
+	INT32 y;
+} POINT;
+#endif
 
 typedef struct
 { 

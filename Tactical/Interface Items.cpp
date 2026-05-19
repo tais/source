@@ -35,7 +35,7 @@
 	#include "WordWrap.h"
 	#include "Interface Control.h"
 	#include "vobject_blitters.h"
-	#include "world items.h"
+	#include "World Items.h"
 	#include "Points.h"
 	#include "physics.h"
 	#include "finances.h"
@@ -5913,7 +5913,7 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 						if (showAttachmentPopups)
 						{	// add the current attachment to the popup assigned to this attachment slot
 							POPUP_OPTION * o = new POPUP_OPTION(	&std::wstring( Item[ usAttachment ].szItemName ), 
-																	new popupCallbackFunction<void,UINT16>(&popupCallbackItem,usAttachment));
+																	new popupCallbackFunction<void,INT16>(&popupCallbackItem,(INT16)usAttachment));
 							
 							gPopupAttachmentInfos.push_back(new PopupAttachmentInfo(usAttachment, pObject, ubStatusIndex, slotCount, o, gItemDescAttachmentPopups[slotCount]));
 
@@ -12136,7 +12136,7 @@ void GetHelpTextForItem( STR16 pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
 		{
 			swprintf( pStr, L"" );
-			swprintf( pzStr, L"%s", pStr );
+			sgp_swprintf( pzStr, 500, L"%s", pStr );
 			return;
 		}
 	}
@@ -12405,7 +12405,7 @@ void GetHelpTextForItem( STR16 pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier
 				if ( gGameExternalOptions.fAdvRepairSystem && sThreshold < 100 )
 				{
 					if( g_lang == i18n::Lang::zh ) {
-						swprintf( pStr, L"%s [%d%£¥(%d%£¥)]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
+						swprintf( pStr, L"%s [%d%ï¿½ï¿½(%d%ï¿½ï¿½)]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
 					ItemNames[ usItem ],
 					sValue,
 					sThreshold,
@@ -12447,7 +12447,7 @@ void GetHelpTextForItem( STR16 pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier
 				else
 				{
 					if( g_lang == i18n::Lang::zh ) {
-						swprintf( pStr, L"%s [%d%£¥]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
+						swprintf( pStr, L"%s [%d%ï¿½ï¿½]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
 					ItemNames[ usItem ],
 					sValue,
 					gWeaponStatsDesc[ 9 ],		//Accuracy String
@@ -12803,7 +12803,7 @@ void GetHelpTextForItem( STR16 pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier
 	}
 
 	// Copy over...
-	swprintf( pzStr, L"%s", pStr );
+	sgp_swprintf( pzStr, 500, L"%s", pStr );
 }
 
 

@@ -5,12 +5,12 @@
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "Weapons.h"
-	#include "handle items.h"
+	#include "Handle Items.h"
 	#include "worlddef.h"
 	#include "worldman.h"
 	#include "Animation Control.h"
 	#include "Tile Animation.h"
-	#include "handle items.h"
+	#include "Handle Items.h"
 	#include "SmokeEffects.h"
 	#include "message.h"
 	#include "Isometric Utils.h"
@@ -1138,7 +1138,7 @@ void UpdateSmokeEffectGraphics( )
 	}
 }
 
-BOOL GetRandomSignalSmokeGridNo(INT32* psGridNo)
+BOOLEAN GetRandomSignalSmokeGridNo(INT32* psGridNo)
 {
 	UINT32		uiCnt;
 	//SMOKEEFFECT *pSmoke;

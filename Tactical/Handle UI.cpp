@@ -29,7 +29,7 @@
 #include "renderworld.h"
 #include "structure.h"
 #include "Interface Panels.h"
-#include "Handle items.h"
+#include "Handle Items.h"
 #include "UI Cursors.h"
 #include "Handle UI Plan.h"
 #include "message.h"
@@ -1367,10 +1367,14 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 				// The crash occurd at ~index 16000 when calling the method IsCorpseAtGridNo() ...
 				// I don't know what causes it ...
 				// Just try/catch (ugly, but works).	 
+#ifdef _MSC_VER
 				__try
-				{		 
-					for(UINT32 i=0; i<(UINT32)WORLD_MAX; i+=4) 
-					{			
+#else
+				try
+#endif
+				{
+					for(UINT32 i=0; i<(UINT32)WORLD_MAX; i+=4)
+					{
 						gubWorldTileInLight[i]		= InLightAtNight(i, gpWorldLevelData[ i ].sHeight);
 						gubIsCorpseThere[i]			= IsCorpseAtGridNo( i, gpWorldLevelData[ i ].sHeight );
 						gubWorldTileInLight[i+1]	= InLightAtNight(i+1, gpWorldLevelData[ i+1 ].sHeight);
@@ -1379,9 +1383,13 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 						gubIsCorpseThere[i+2]		= IsCorpseAtGridNo( i+2, gpWorldLevelData[ i+2 ].sHeight );
 						gubWorldTileInLight[i+3]	= InLightAtNight(i+3, gpWorldLevelData[ i+3 ].sHeight);
 						gubIsCorpseThere[i+3]		= IsCorpseAtGridNo( i+3, gpWorldLevelData[ i+3 ].sHeight );
-					}	
+					}
 				}
+#ifdef _MSC_VER
 				__except( EXCEPTION_EXECUTE_HANDLER  )
+#else
+				catch (...)
+#endif
 				{
 					// WANNE: Ignore, so the game can continue ...
 				}

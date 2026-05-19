@@ -4,7 +4,6 @@
 	#include "Font Control.h"
 	#include "message.h"
 	#include "memory.h"
-	#include "mbstring.h"
 	#include "Timer Control.h"
 	#include "Render Dirty.h"
 	#include "renderworld.h"
@@ -1586,7 +1585,7 @@ UINT8 GetRangeOfMapScreenMessages( void )
 }
 
 // OJW - 20090426 - only show certain messages in the tactical / message overlay
-void SetTacticalMessageFilter( UINT ubPriority )
+void SetTacticalMessageFilter( UINT32 ubPriority )
 {
 	gTacticalMsgFilterPriority = ubPriority;
 }

@@ -34,6 +34,9 @@
 #ifndef WIN32
 #	include "errno.h"
 #	include "sys/stat.h"
+#	if defined(__APPLE__)
+#		include <mach-o/dyld.h>
+#	endif
 #endif
 
 vfs::OS::CIterateDirectory::CIterateDirectory(vfs::Path const& sPath, vfs::String const& searchPattern)
@@ -300,14 +303,22 @@ void vfs::OS::getExecutablePath(vfs::Path& sDir, vfs::Path& sFile)
 			L"],  error code : " << code << _BS::wget);
 	}
 #else
-	char buf[256];
-	ssize_t size = readlink("/proc/self/exe", buf, 256);
+	char buf[1024];
+#	if defined(__APPLE__)
+	uint32_t size = sizeof(buf);
+	if(_NSGetExecutablePath(buf, &size) != 0)
+	{
+		VFS_THROW(L"Executable path buffer too small");
+	}
+#	else
+	ssize_t size = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if(size == -1)
 	{
 		vfs::String err = strerror(errno);
 		VFS_THROW(err);
 	}
 	buf[size] = 0;
+#	endif
 	vfs::Path exedir(buf);
 	exedir.splitLast(sDir, sFile);
 #endif

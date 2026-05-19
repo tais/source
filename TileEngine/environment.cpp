@@ -1166,7 +1166,7 @@ void HandleEnvironmentHazard( )
 
 						if ( !soundplayed )
 						{
-							PlayJA2SampleFromFile( Chance( 50 ) ? "Sounds\\WATERSNAKE_ATTACK_01.WAV" : "Sounds\\WATERSNAKE_ATTACK_02.WAV", RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
+							PlayJA2SampleFromFile( (STR8)(Chance( 50 ) ? "Sounds\\WATERSNAKE_ATTACK_01.WAV" : "Sounds\\WATERSNAKE_ATTACK_02.WAV"), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ) );
 
 							soundplayed = TRUE;
 						}
@@ -1198,7 +1198,7 @@ void HandleEnvironmentHazard( )
 
 		if ( !actionstodo && !soundplayed )
 		{
-			PlayJA2SampleFromFile( Chance( 50 ) ? "Sounds\\WATERSNAKE_MOVE_01.WAV" : "Sounds\\WATERSNAKE_MOVE_02.WAV", RATE_11025, LOWVOLUME, 1, MIDDLEPAN );
+			PlayJA2SampleFromFile( (STR8)(Chance( 50 ) ? "Sounds\\WATERSNAKE_MOVE_01.WAV" : "Sounds\\WATERSNAKE_MOVE_02.WAV"), RATE_11025, LOWVOLUME, 1, MIDDLEPAN );
 		}
 	}
 }

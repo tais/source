@@ -1172,7 +1172,7 @@ void ChatScreenMsgScrollDown( UINT8 ubLinesDown )
 	// check if we can go that far, only go as far as we can
 	if ( ( gubFirstChatLogMessageIndex + MAX_CHATLOG_MESSAGES + ubLinesDown ) > ubNumMessages )
 	{
-		ubLinesDown = ubNumMessages - gubFirstChatLogMessageIndex - min( ubNumMessages, MAX_CHATLOG_MESSAGES );
+		ubLinesDown = ubNumMessages - gubFirstChatLogMessageIndex - std::min<UINT8>( ubNumMessages, MAX_CHATLOG_MESSAGES );
 	}
 
 	if ( ubLinesDown > 0 )
@@ -1207,7 +1207,7 @@ void MoveToEndOfChatScreenMessageList( void )
 
 	ubNumMessages = GetRangeOfChatLogMessages();
 
-	ubDesiredMessageIndex = ubNumMessages - min( ubNumMessages, MAX_CHATLOG_MESSAGES );
+	ubDesiredMessageIndex = ubNumMessages - std::min<UINT8>( ubNumMessages, MAX_CHATLOG_MESSAGES );
 	ChangeCurrentChatScreenMessageIndex( ubDesiredMessageIndex );
 }
 
@@ -1215,7 +1215,7 @@ void MoveToEndOfChatScreenMessageList( void )
 
 void ChangeCurrentChatScreenMessageIndex( UINT8 ubNewMessageIndex )
 {
-	Assert( ubNewMessageIndex + MAX_CHATLOG_MESSAGES <= max( MAX_CHATLOG_MESSAGES, GetRangeOfChatLogMessages() ) );
+	Assert( ubNewMessageIndex + MAX_CHATLOG_MESSAGES <= std::max<UINT8>( MAX_CHATLOG_MESSAGES, GetRangeOfChatLogMessages() ) );
 
 	gubFirstChatLogMessageIndex = ubNewMessageIndex;
 	gubCurrentChatLogMessageString = ( gubStartOfChatLogMessageList + gubFirstChatLogMessageIndex ) % 256;
@@ -1287,8 +1287,13 @@ void ChatScreenMessageScrollBarCallBack( MOUSE_REGION *pRegion, INT32 iReason )
 		if ( ubNumMessages > MAX_CHATLOG_MESSAGES )
 		{
 			// where is the mouse?
+#ifdef _WIN32
 			GetCursorPos( &MousePos );
 			ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+			MousePos.x = gusMouseXPos;
+			MousePos.y = gusMouseYPos;
+#endif
 
 			ubMouseYOffset = (UINT8) MousePos.y - CHATLOG_SCROLL_AREA_START_Y;
 

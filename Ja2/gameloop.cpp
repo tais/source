@@ -243,8 +243,13 @@ void GameLoop(void)
 		ResizeWorldItems();
 
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: get mouse position");
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	// Hook into mouse stuff for MOVEMENT MESSAGES
 	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"GameLoop: get mouse hook");
@@ -657,8 +662,13 @@ void HandleDefaultEvent(InputAtom *Event)
 	if (Event != NULL && Event->usEvent & MouseButtonEvents)
 	{
 		POINT		MousePos;
+#ifdef _WIN32
 		GetCursorPos(&MousePos);
 		ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+		MousePos.x = gusMouseXPos;
+		MousePos.y = gusMouseYPos;
+#endif
 		MouseSystemHook(Event->usEvent, (UINT16)MousePos.x ,(UINT16)MousePos.y ,_LeftButtonDown, _RightButtonDown);
 	}
 }

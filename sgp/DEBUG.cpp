@@ -24,7 +24,6 @@
 
 
 	#include "types.h"
-	#include <windows.h>
 	#include <stdio.h>
 	#include <string>
 	#include <sstream>
@@ -49,10 +48,9 @@
 
 #include "debug_util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+// These match the C++-linkage declarations in DEBUG.H. The previous
+// extern "C" wrapper here was inconsistent and clang refuses to mix
+// the two.
 BOOLEAN gfRecordToFile     = FALSE;
 BOOLEAN gfRecordToDebugger = TRUE;
 
@@ -69,10 +67,6 @@ CHAR8 gubAssertString[512];
 #define MAX_MSG_LENGTH2 512
 CHAR8		gbTmpDebugString[8][MAX_MSG_LENGTH2];
 UINT8		gubStringIndex = 0;
-
-#ifdef __cplusplus
-}
-#endif
 
 #ifdef SGP_DEBUG
 
@@ -453,24 +447,14 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 		SaveGame( SAVE__ASSERTION_FAILURE, L"Assertion Failure Auto Save" );
 	}
 
-    MSG Message;
+	// Spin a minimal game loop while the assert error screen is up.
+	// SDL event pumping happens in main()'s top-level loop; this nested
+	// loop only fires from inside an assert handler, so it suffices to
+	// keep calling GameLoop() until gfProgramIsRunning flips false.
 	while (gfProgramIsRunning)
 	{
-		if (PeekMessage(&Message, NULL, 0, 0, PM_NOREMOVE))
-		{ // We have a message on the WIN95 queue, let's get it
-			if (!GetMessage(&Message, NULL, 0, 0))
-			{ // It's quitting time
-				continue;
-			}
-			// Ok, now that we have the message, let's handle it
-			TranslateMessage(&Message);
-			DispatchMessage(&Message);      
-		}
-		else
-		{ // Windows hasn't processed any messages, therefore we handle the rest
-			GameLoop();        
-			gfSGPInputReceived  =  FALSE;			
-		}
+		GameLoop();
+		gfSGPInputReceived = FALSE;
 	}
 
 	alreadyInThisFunction = false;
@@ -625,15 +609,11 @@ sgp::Exception::Exception(WString const& msg, std::exception& ex SGP_CALLER_LOCA
 }
 
 
-#if defined(_WIN32) || defined(WIN64)
-#	define ENDL "\r\n"
-#else
-#	define ENDL "\n"
-#endif
+#define ENDL "\n"
 
 static std::string gs_exception_string;
 
-const char* sgp::Exception::what() const
+const char* sgp::Exception::what() const throw()
 {
 	// cannot return pointer local variable
 	std::stringstream ss;

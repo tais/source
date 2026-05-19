@@ -1,5 +1,7 @@
 #include "PaletteTable.h"
 
+#include <cstring>  // libstdc++ doesn't transitively expose strcpy/memset/memcpy the way MSVC's STL does
+
 namespace LogicalBodyTypes {
 
 PaletteTable::PaletteTable() {
@@ -84,7 +86,12 @@ bool PaletteTable::Load(std::string fileName) {
 	this->p8BPPPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
 	memset(this->p8BPPPalette, 0, sizeof(SGPPaletteEntry) * 256);
 	if (CreateSGPPaletteFromActFile(Temp8BPPPalette, (CHAR8*)fileName.c_str())) {
-		memcpy(this->p8BPPPalette, Temp8BPPPalette, sizeof(this->p8BPPPalette) * 256);
+		// NB: 'sizeof(this->p8BPPPalette)' is sizeof(pointer), which on
+		// 32-bit happens to equal sizeof(SGPPaletteEntry) (both 4) and
+		// hides the bug; on 64-bit it doubles the copy length and
+		// smashes the heap right past p8BPPPalette. Use the element
+		// size explicitly.
+		memcpy(this->p8BPPPalette, Temp8BPPPalette, sizeof(SGPPaletteEntry) * 256);
 	} else {
 		return false;
 	}

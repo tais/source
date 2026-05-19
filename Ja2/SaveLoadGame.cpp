@@ -3551,10 +3551,10 @@ BOOLEAN SaveGame( int ubSaveGameID, STR16 pGameDesc )
 		guiCurrentQuickSaveNumber++;
 
 		if( gfUseConsecutiveQuickSaveSlots )
-			swprintf( pGameDesc, L"%s%03d", pMessageStrings[ MSG_QUICKSAVE_NAME ], guiCurrentQuickSaveNumber );
+			sgp_swprintf( pGameDesc, SIZE_OF_SAVE_GAME_DESC, L"%s%03d", pMessageStrings[ MSG_QUICKSAVE_NAME ], guiCurrentQuickSaveNumber );
 		else
 #endif
-			swprintf( pGameDesc, pMessageStrings[ MSG_QUICKSAVE_NAME ] );
+			sgp_swprintf( pGameDesc, SIZE_OF_SAVE_GAME_DESC, pMessageStrings[ MSG_QUICKSAVE_NAME ] );
 		wcscpy(SaveGameHeader.sSavedGameDesc, pGameDesc);
 	}
 
@@ -7746,9 +7746,12 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 		for (int idx = OUR_TEAM; idx <= CIV_TEAM; ++idx) {
 			cntFromFile[ idx ] = gTacticalStatus.Team[ idx ].bLastID - gTacticalStatus.Team[ idx ].bFirstID + 1;
 		}
-		int cntFromIni[] = {gGameExternalOptions.ubGameMaximumNumberOfPlayerMercs + gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles,
-									  gGameExternalOptions.ubGameMaximumNumberOfEnemies, gGameExternalOptions.ubGameMaximumNumberOfCreatures,
-									  gGameExternalOptions.ubGameMaximumNumberOfRebels, gGameExternalOptions.ubGameMaximumNumberOfCivilians};
+		int cntFromIni[5];
+		cntFromIni[0] = (int)(gGameExternalOptions.ubGameMaximumNumberOfPlayerMercs + gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles);
+		cntFromIni[1] = (int)gGameExternalOptions.ubGameMaximumNumberOfEnemies;
+		cntFromIni[2] = (int)gGameExternalOptions.ubGameMaximumNumberOfCreatures;
+		cntFromIni[3] = (int)gGameExternalOptions.ubGameMaximumNumberOfRebels;
+		cntFromIni[4] = (int)gGameExternalOptions.ubGameMaximumNumberOfCivilians;
 		
 		CHAR16 *errMsgTxt[] = {L"Mercenary / Vehicle", L"Enemy", L"Creature", L"Militia", L"Civilian"};
 		errMsgTxt[0] = Additional113Text[ERROR_MAX_MERCSVEHICLES];

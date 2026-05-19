@@ -21,6 +21,13 @@ extern INT8 Test = 0;
 INTRO_NAMES_VALUES zVideoFile[255];
 UINT32 iStringToUseLua = -1;
 
+// Phase 6u: SMK playback is libsmacker-backed via Utils/Cinematics.cpp;
+// the legacy Win32 HWND argument to SmkInitialize/BinkInitialize is now
+// vestigial -- both decoders blit straight into FRAME_BUFFER and have
+// no Win32 dependencies. Bink (.BIK) support stays stubbed because no
+// shipped JA2 cinematic uses it, but the public surface stays so the
+// VideoPlayer state machine below doesn't need restructuring.
+
 // BF
 class VideoPlayer
 {
@@ -38,11 +45,11 @@ public:
 	{
 		if(_type & VT_SMK)
 		{
-			SmkInitialize( ghWindow, SCREEN_WIDTH, SCREEN_HEIGHT);
+			SmkInitialize( nullptr, SCREEN_WIDTH, SCREEN_HEIGHT);
 		}
 		if(_type & VT_BINK)
 		{
-			BinkInitialize(ghWindow, SCREEN_WIDTH, SCREEN_HEIGHT);
+			BinkInitialize(nullptr, SCREEN_WIDTH, SCREEN_HEIGHT);
 		}
 	}
 	void Shutdown()
@@ -444,8 +451,16 @@ void GetIntroScreenUserInput()
 	InputAtom Event;
 	POINT	MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	// SDL3 port: gusMouseX/YPos is the in-window position, kept up to
+	// date by sgp/sdl_input.cpp's SDL_MOUSEMOTION handler -- no need to
+	// translate from screen coords.
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	while( DequeueEvent( &Event ) )
 	{

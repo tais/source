@@ -8,7 +8,9 @@
 
 //**
 	#include "types.h"
+#ifdef _WIN32
 	#include <windows.h>
+#endif
 	#include <stdio.h>
 	#include <memory.h>
 	#include "DEBUG.H"
@@ -84,8 +86,10 @@ BOOLEAN		gfSGPInputReceived = FALSE;
 // This is the WIN95 hook specific data and defines used to handle the keyboard and
 // mouse hook
 
+#ifdef _WIN32
 HHOOK ghKeyboardHook;
 HHOOK ghMouseHook;
+#endif
 
 // If the following pointer is non NULL then input characters are redirected to
 // the related string
@@ -105,7 +109,9 @@ void	HandleSingleClicksAndButtonRepeats( void );
 void	AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
-
+// (Win32-only -- Phase 4 SDL3 input migration replaces this entire
+// block with SDL_PollEvent dispatching to the same QueueEvent path.)
+#ifdef _WIN32
 LRESULT CALLBACK KeyboardHandler(int Code, WPARAM wParam, LPARAM lParam)
 {
 	if (Code < 0) // Do not handle this message, pass it on to another window
@@ -225,6 +231,7 @@ LRESULT CALLBACK MouseHandler(int Code, WPARAM wParam, LPARAM lParam)
 
 	return TRUE;
 }
+#endif // _WIN32 (Keyboard/Mouse hooks)
 
 
 
@@ -267,8 +274,10 @@ BOOLEAN InitializeInputManager(void)
 
 	InitializeCriticalSection(&gcsInputQueueLock);
 
+#ifdef _WIN32
 	ghMouseHook = SetWindowsHookEx(WH_MOUSE, (HOOKPROC) MouseHandler, (HINSTANCE) 0, GetCurrentThreadId());
 	DbgMessage(TOPIC_INPUT, DBG_LEVEL_2, String("Set mouse hook returned %d", ghMouseHook));
+#endif
 	return TRUE;
 }
 
@@ -277,9 +286,11 @@ void ShutdownInputManager(void)
 	// There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
 	// mouse hooks will be destroyed
 	UnRegisterDebugTopic(TOPIC_INPUT, "Input Manager");
+#ifdef _WIN32
 //	UnhookWindowsHookEx(ghKeyboardHook);
 	UnhookWindowsHookEx(ghMouseHook);
-	
+#endif
+
 	DeleteCriticalSection(&gcsInputQueueLock);
 }
 
@@ -448,11 +459,16 @@ void InternalQueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 {
 	EnterCriticalSection(&gcsInputQueueLock);
+#ifdef _MSC_VER
 	__try {
 		InternalQueueEvent(ubInputEvent, usParam, uiParam);
 	}__finally {
 		LeaveCriticalSection(&gcsInputQueueLock);
 	}
+#else
+	InternalQueueEvent(ubInputEvent, usParam, uiParam);
+	LeaveCriticalSection(&gcsInputQueueLock);
+#endif
 }
 
 BOOLEAN DequeueSpecificEvent(InputAtom *Event, UINT32 uiMaskFlags )
@@ -461,8 +477,10 @@ BOOLEAN DequeueSpecificEvent(InputAtom *Event, UINT32 uiMaskFlags )
 
     BOOLEAN result = FALSE;
 
+#ifdef _MSC_VER
 	__try
 	{
+#endif
 		// Is there an event to dequeue
 		if (gusQueueCount > 0)
 		{
@@ -474,11 +492,15 @@ BOOLEAN DequeueSpecificEvent(InputAtom *Event, UINT32 uiMaskFlags )
 				result = DequeueEvent( Event);
 			}
 		}
+#ifdef _MSC_VER
 	}
 	__finally
 	{
 		LeaveCriticalSection(&gcsInputQueueLock);
 	}
+#else
+	LeaveCriticalSection(&gcsInputQueueLock);
+#endif
 
     return result;
 }
@@ -518,6 +540,7 @@ BOOLEAN InternalDequeueEvent(InputAtom *Event)
 BOOLEAN DequeueEvent(InputAtom *Event)
 {
     BOOLEAN result = FALSE;
+#ifdef _MSC_VER
 	__try
 	{
 		EnterCriticalSection(&gcsInputQueueLock);
@@ -527,6 +550,11 @@ BOOLEAN DequeueEvent(InputAtom *Event)
 	{
 		LeaveCriticalSection(&gcsInputQueueLock);
 	}
+#else
+	EnterCriticalSection(&gcsInputQueueLock);
+	result = InternalDequeueEvent(Event);
+	LeaveCriticalSection(&gcsInputQueueLock);
+#endif
 
 	return result;
 }
@@ -948,8 +976,13 @@ void KeyChange(UINT32 usParam, UINT32 uiParam, UINT8 ufKeyState)
 		}
 	}
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 
@@ -1002,7 +1035,9 @@ void KeyChange(UINT32 usParam, UINT32 uiParam, UINT8 ufKeyState)
 		else if( ubChar == TAB && gfAltState )
 		{
 			// therefore minimize the application
+#ifdef _WIN32
 			ShowWindow( ghWindow, SW_MINIMIZE );
+#endif
 			gfKeyState[ ALT ] = FALSE;
 			gfAltState = FALSE;
 		}
@@ -1115,8 +1150,13 @@ void GetMousePos(SGPPoint *Point)
 {
 	POINT MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	Point->iX = (UINT32) MousePos.x;
 	Point->iY = (UINT32) MousePos.y;
@@ -1562,15 +1602,19 @@ void RestrictMouseCursor(SGPRect *pRectangle)
 {
 	// Make a copy of our rect....
 	memcpy( &gCursorClipRect, pRectangle, sizeof( gCursorClipRect ) );
+#ifdef _WIN32
 	ClientToScreen( ghWindow, (LPPOINT)&gCursorClipRect);
 	ClientToScreen( ghWindow, ((LPPOINT)&gCursorClipRect)+1);
 	ClipCursor(&gCursorClipRect);
+#endif
 	fCursorWasClipped = TRUE;
 }
 
 void FreeMouseCursor( BOOLEAN fLockForTacticalWindowedMode )
 {
+#ifdef _WIN32
 	ClipCursor(NULL);
+#endif
 	fCursorWasClipped = FALSE;
 
 	// Buggler: Need to relock for fullscreen mode as ClipCursor release mouse boundary to full desktop resolution on multi-monitor setup &&
@@ -1591,15 +1635,24 @@ void RestoreCursorClipRect( void )
 {
 	if ( fCursorWasClipped )
 	{
+#ifdef _WIN32
 		ClipCursor( &gCursorClipRect );
+#endif
 	}
 }
 
 void GetRestrictedClipCursor( SGPRect *pRectangle )
 {
+#ifdef _WIN32
 	GetClipCursor((RECT *) pRectangle );
 	ScreenToClient( ghWindow, (LPPOINT)pRectangle);
 	ScreenToClient( ghWindow, ((LPPOINT)pRectangle)+1);
+#else
+	if (pRectangle) {
+		pRectangle->iLeft = 0; pRectangle->iTop = 0;
+		pRectangle->iRight = 0; pRectangle->iBottom = 0;
+	}
+#endif
 }
 
 BOOLEAN IsCursorRestricted( void )
@@ -1609,11 +1662,27 @@ BOOLEAN IsCursorRestricted( void )
 
 void SimulateMouseMovement( UINT32 uiNewXPos, UINT32 uiNewYPos )
 {
+#ifdef _WIN32
 	POINT newmouse;
 	newmouse.x = uiNewXPos;
 	newmouse.y = uiNewYPos;
 	ClientToScreen( ghWindow, &newmouse);
 	SetCursorPos( newmouse.x, newmouse.y);
+#else
+	// SDL3 port: do nothing. On Win32 this used SetCursorPos to physically
+	// warp the OS cursor so the game's idea of cursor position and the OS
+	// cursor stayed in sync. Our port hides the OS cursor (we render our
+	// own from gusMouseX/YPos, which are driven by SDL_MOUSEMOTION events)
+	// and we don't have a way to push the OS cursor to a programmatic
+	// position cross-platform without surprising the user. Writing
+	// gusMouseX/YPos here would jump the in-game cursor sprite to the
+	// warp target while the OS pointer stayed put -- exactly the
+	// "cursor location resets to center when a popup appears" symptom.
+	// Callers expecting auto-centering on dialog buttons just don't
+	// get it; the user moves the mouse the normal way.
+	(void)uiNewXPos;
+	(void)uiNewYPos;
+#endif
 }
 
 
@@ -1632,9 +1701,9 @@ BOOLEAN InputEventInside(InputAtom *Event, UINT32 uiX1, UINT32 uiY1, UINT32 uiX2
 void DequeueAllKeyBoardEvents()
 {
 	InputAtom	InputEvent;
+
+#ifdef _WIN32
 	MSG			KeyMessage;
-
-
 	//dequeue all the events waiting in the windows queue
 	//Give them proper processing like the old window hook method used to.
 	while( PeekMessage( &KeyMessage, ghWindow, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE ) )
@@ -1642,6 +1711,7 @@ void DequeueAllKeyBoardEvents()
 		TranslateMessage( &KeyMessage);
 		DispatchMessage( &KeyMessage);
 	}
+#endif
 
 	//Now deque all the events waiting in the SGP queue
 	//Including those that were just posted in the code above
@@ -1667,8 +1737,13 @@ void HandleSingleClicksAndButtonRepeats( void )
 			UINT32 uiTmpLParam;
 			POINT	MousePos;
 
+#ifdef _WIN32
 			GetCursorPos(&MousePos);
 			ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+			MousePos.x = gusMouseXPos;
+			MousePos.y = gusMouseYPos;
+#endif
 			uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 			QueueEvent(LEFT_BUTTON_REPEAT, 0, uiTmpLParam);
 			guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
@@ -1688,8 +1763,13 @@ void HandleSingleClicksAndButtonRepeats( void )
 			UINT32 uiTmpLParam;
 			POINT	MousePos;
 
+#ifdef _WIN32
 			GetCursorPos(&MousePos);
 			ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+			MousePos.x = gusMouseXPos;
+			MousePos.y = gusMouseYPos;
+#endif
 			uiTmpLParam = ((MousePos.y << 16) & 0xffff0000) | (MousePos.x & 0x0000ffff);
 			QueueEvent(RIGHT_BUTTON_REPEAT, 0, uiTmpLParam);
 			guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIME;
@@ -1704,9 +1784,14 @@ void HandleSingleClicksAndButtonRepeats( void )
 
 INT16 GetMouseWheelDeltaValue( UINT32 wParam )
 {
+#ifdef _WIN32
 	INT16 sDelta = HIWORD( wParam );
 
 	return( sDelta / WHEEL_DELTA );
+#else
+	// Phase 4 will set up the right SDL_MouseWheelEvent dispatch.
+	return (INT16)(wParam >> 16);
+#endif
 }
 
 BOOLEAN PeekSpecificEvent(UINT32 uiMaskFlags)//dnl ch74 221013

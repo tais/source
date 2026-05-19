@@ -1,5 +1,4 @@
 	#include "Strategic Event Handler.h"
-	#include <Windows.h>
 	#include "Items.h"
 	#include "Handle Items.h"
 	#include "Tactical Save.h"
@@ -50,7 +49,7 @@ extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 //void DropOffItemsInMeduna( UINT8 ubOrderNum );
 
 /*
-// WANNE: Dieser Code wird nicht mehr ausgeführt. Es gibt jetzt das PostalService.cpp::DeliverShipment()
+// WANNE: Dieser Code wird nicht mehr ausgefï¿½hrt. Es gibt jetzt das PostalService.cpp::DeliverShipment()
 // In der Methode DeliverShipment() fehlt eine ganze Menge (PABLO Quests, ...)
 void BobbyRayPurchaseEventCallback( UINT8 ubOrderID )
 {

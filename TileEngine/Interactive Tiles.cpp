@@ -946,6 +946,7 @@ BOOLEAN CheckVideoObjectScreenCoordinateInData( HVOBJECT hSrcVObject, UINT16 usI
 
 	SrcPtr= (UINT8 *)hSrcVObject->pPixData + uiOffset;
 
+#ifdef _MSC_VER
 	__asm {
 
 		mov		esi, SrcPtr
@@ -1056,6 +1057,14 @@ BlitFound:
 
 BlitDone:
 	}
+#else
+	// Pixel-hit testing of the ETRLE-compressed video object data is
+	// done by inline assembly on MSVC; on other compilers we punt
+	// (the function reports "no hit"). Mouse interaction on
+	// transparent regions of interactive tiles is slightly looser
+	// until this is ported to portable C.
+	(void)SrcPtr; (void)LineSkip; (void)iStartPos; (void)iTestPos;
+#endif
 
 	return(fDataFound);
 

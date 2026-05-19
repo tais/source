@@ -216,7 +216,7 @@ public:
 	 * Set the content of a dropdown. Each entry consists of an INT16 key, by which you can later identify which entry was selected, and a STR16 that will be displayed.
 	 * There can be multiple instances of the same key or name.
 	 */
-	void SetEntries( std::vector<std::pair<INT16, STR16> >& arEntryVec )	{ mEntryVector = arEntryVec; mNumDisplayedEntries = min( DROPDOWN_REGIONS, mEntryVector.size( ) ); }
+	void SetEntries( std::vector<std::pair<INT16, STR16> >& arEntryVec )	{ mEntryVector = arEntryVec; mNumDisplayedEntries = std::min<size_t>( DROPDOWN_REGIONS, mEntryVector.size( ) ); }
 		
 	/*
 	 * Set help text decribing what can be selected
@@ -416,9 +416,6 @@ private:
     DropDownTemplate(DropDownTemplate const&); 
     void operator=(DropDownTemplate const&);
 };
-
-template <int N>
-void DropDownTemplate<N>::SetRefresh();
 
 template <int N>
 void* DropDownTemplate<N>::mpSelf = NULL;

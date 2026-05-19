@@ -44,7 +44,7 @@
 		UINT32	classId;
 	} PopupIndex ;
 
-	extern std::vector<typename PopupIndex>	gPopupRegionIndex;
+	extern std::vector<PopupIndex>	gPopupRegionIndex;
 	extern std::vector<POPUP*>	gPopupIndex;
 
 	extern UINT32			gPopupRegionIndexCounter;
@@ -66,7 +66,7 @@
 	class POPUP_OPTION
 	{
 	public:
-		POPUP_OPTION::POPUP_OPTION(void); // default constructor
+		POPUP_OPTION(void); // default constructor
 		POPUP_OPTION(std::wstring* name, popupCallback* newFunction); // constructor
 		~POPUP_OPTION();			// destructor
 		// setup
@@ -136,7 +136,7 @@
 		// public functions
 	public:
 		POPUP(void); // constructor
-		POPUP(CHAR* name); // constructor
+		POPUP(CHAR8* name); // constructor
 		~POPUP(void);			// destructor
 		// setup
 		POPUP_OPTION * addOption(std::wstring * name, popupCallback * action);
@@ -144,11 +144,11 @@
 		BOOLEAN addOption(POPUP_OPTION &option);
 		POPUP_OPTION * getOption(UINT16 n);
 
-		BOOLEAN delOption(CHAR* name);		// Another index to through and clean, aargh
+		BOOLEAN delOption(CHAR8* name);		// Another index to through and clean, aargh
 		BOOLEAN delOption(UINT8 optIndex);
 
 		POPUP* addSubMenuOption(std::wstring * name);
-		BOOL addSubMenuOption(POPUP_SUB_POPUP_OPTION* sub);
+		BOOLEAN addSubMenuOption(POPUP_SUB_POPUP_OPTION* sub);
 		/*INT16 findFreeSubMenuOptionIndex();*/
 		POPUP_SUB_POPUP_OPTION * getSubPopupOption(UINT8 n);
 
@@ -181,7 +181,7 @@
 		/////////////////////////
 		// public variables
 	public:
-		CHAR name[32];
+		CHAR8 name[32];
 		SGPPoint Position;
 		SGPRect Dimensions;
 		UINT32 id;

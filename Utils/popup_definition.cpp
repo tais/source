@@ -17,13 +17,28 @@
 	popupDef::popupDef(){}
 
 	popupDef::~popupDef(){
-		for(std::vector<popupDefContent*>::iterator content=this->content.begin(); content != this->content.end(); ++content)
-		{
-			delete *content;
-		}
+		// NB: leak content[] on purpose.
+		//
+		// The XML loader (Tactical/XML_LBEPocketPopup.cpp) does
+		//     LBEPocketPopup[id] = *pData->curPocketPopup;
+		// which shallow-copies the content* pointers into the map
+		// AND keeps them alive in the source `*curPocketPopup`
+		// (which the loader never deletes -- it just allocates a
+		// fresh popupDef for the next <popup>). The map's static
+		// destructor at process exit then tries to free the same
+		// pointers that the (now-leaked) source popupDef would
+		// also be responsible for if its destructor ever ran, and
+		// macOS's malloc guard SIGTRAPs.
+		//
+		// Real fixes: deep-copy via a clone() virtual, or change
+		// LBEPocketPopup to hold popupDef* / unique_ptr<popupDef>.
+		// For now, leak: LBEPocketPopup is process-global, the
+		// number of popup defs is bounded by the XML file (a few
+		// dozen), and the OS reclaims the memory when the process
+		// exits.
 	}
 
-	BOOL popupDef::applyToBox(POPUP* popup){
+	BOOLEAN popupDef::applyToBox(POPUP* popup){
 		for(std::vector<popupDefContent*>::iterator content=this->content.begin(); content != this->content.end(); ++content)
 		{
 			if ( (*content)->addToBox( popup ) != TRUE ) return FALSE;
@@ -32,7 +47,7 @@
 		return TRUE;
 	}
 
-	BOOL popupDef::addOption(std::wstring* name, UINT16 callbackId, UINT16 availId){
+	BOOLEAN popupDef::addOption(std::wstring* name, UINT16 callbackId, UINT16 availId){
 		// TODO: check for vaid callbacl/avail ID
 		
 		this->content.push_back( new popupDefOption(name,callbackId,availId) );
@@ -49,14 +64,14 @@
 		return sub->getSubDef();
 	}
 
-	BOOL popupDef::addSubPopup(popupDefSubPopupOption* sub){
+	BOOLEAN popupDef::addSubPopup(popupDefSubPopupOption* sub){
 		// TODO: add check for max options
 		this->content.push_back( sub );
 
 		return TRUE;
 	};
 
-	BOOL popupDef::addGenerator(UINT16 id){
+	BOOLEAN popupDef::addGenerator(UINT16 id){
 		// TODO: check for valid generator id
 
 		this->content.push_back( new popupDefContentGenerator(id) );
@@ -77,7 +92,7 @@
 //	popupDefOption helpers
 //////////////////////////////////////
 
-	static BOOL setPopupDefCallback( POPUP_OPTION * opt, UINT16 callbackId ){
+	static BOOLEAN setPopupDefCallback( POPUP_OPTION * opt, UINT16 callbackId ){
 	
 		// TODO
 		opt->setAction(NULL);
@@ -86,7 +101,7 @@
 
 	}
 
-	static BOOL setPopupDefAvail( POPUP_OPTION * opt, UINT16 callbackId ){
+	static BOOLEAN setPopupDefAvail( POPUP_OPTION * opt, UINT16 callbackId ){
 	
 		// TODO
 		opt->setAvail(NULL);
@@ -104,7 +119,7 @@
 
 	~popupDefOption::popupDefOption(){}
 	*/
-	BOOL popupDefOption::addToBox(POPUP * popup){
+	BOOLEAN popupDefOption::addToBox(POPUP * popup){
 	
 		POPUP_OPTION * opt = new POPUP_OPTION();
 
@@ -130,7 +145,7 @@
 	
 	popupDefSubPopupOption::~popupDefSubPopupOption(){}
 	*/
-	BOOL popupDefSubPopupOption::addToBox(POPUP * popup){
+	BOOLEAN popupDefSubPopupOption::addToBox(POPUP * popup){
 	
 		POPUP_SUB_POPUP_OPTION * sub = new POPUP_SUB_POPUP_OPTION( this->name );
 
@@ -162,7 +177,7 @@
 	void addDrugsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
 	*/
 
-	static BOOL applyPopupContentGenerator( POPUP * popup, UINT16 generatorId ){
+	static BOOLEAN applyPopupContentGenerator( POPUP * popup, UINT16 generatorId ){
 
 		SOLDIERTYPE	*pSoldier;
 		GetSoldier( &pSoldier, gCharactersList[ bSelectedInfoChar ].usSolID );
@@ -223,11 +238,15 @@
 	/* defined in header file
 	popupDefContentGenerator::popupDefContentGenerator(){}
 	popupDefContentGenerator::popupDefContentGenerator( UINT16 generatorId ){}
-	
-	popupDefContentGenerator::~popupDefContentGenerator(){}
 	*/
 
-	BOOL popupDefContentGenerator::addToBox(POPUP * popup){
+	// The destructor is virtual (inherited from popupDefContent --
+	// recently made virtual to silence the macOS malloc guard's
+	// SIGTRAP on delete-via-base-pointer). It's the key function
+	// that anchors popupDefContentGenerator's vtable in this TU.
+	popupDefContentGenerator::~popupDefContentGenerator(){}
+
+	BOOLEAN popupDefContentGenerator::addToBox(POPUP * popup){
 	
 		return applyPopupContentGenerator( popup, this->generatorId );
 	

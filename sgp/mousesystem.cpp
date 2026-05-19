@@ -12,7 +12,6 @@
 //=================================================================================================
 
 	#include "types.h"
-	#include <windows.h>
 	#include <stdio.h>
 	#include <memory.h>
 	#include "DEBUG.H"

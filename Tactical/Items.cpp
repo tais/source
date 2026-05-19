@@ -10066,7 +10066,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[ usPaletteAnimSurface ].hVideoObject->pPaletteEntry, sizeof( pSoldier->p8BPPPalette ) * 256 );
+			memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[ usPaletteAnimSurface ].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
 			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
 			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
@@ -14570,7 +14570,7 @@ BOOLEAN UseTotalMedicalKitPoints( SOLDIERTYPE * pSoldier, UINT16 usPointsToConsu
 		return( TRUE );
 }
 
-static UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
+UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
 {
 	// Yes, this may look stupid, maybe it IS stupid, but this is purely an option
 	// to use code that was checked in before.

@@ -1,8 +1,6 @@
 #ifndef INIREADER_H
 #define INIREADER_H
-#define NOMINMAX
 #include <algorithm>
-#include <windows.h>
 #include <types.h>
 #include <stack>
 #include <string>
@@ -48,10 +46,10 @@ public:
 
 	BOOLEAN ReadBoolean(const STR8	szSection, const STR8 szKey, bool bolDefaultValue, bool bolDisplayError = true);
 
-	void ReadString(const STR8 szSection, const STR8 szKey, const STR8 szDefaultValue, STR8 input_buffer, size_t buffer_size);
+	void ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, STR8 input_buffer, size_t buffer_size);
 
 	// WANNE - MP: Old version, currently used by Multiplayer
-	STR8 ReadString(const STR8 szSection, const STR8 szKey, const STR8	szDefaultValue);
+	STR8 ReadString(const char* szSection, const char* szKey, const char* szDefaultValue);
 	
 	BOOLEAN Is_CIniReader_File_Found(void) {return (CIniReader_File_Found);}
 	void Clear();

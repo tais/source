@@ -19,15 +19,13 @@
 //**************************************************************************
 
 	#include "types.h"
-	#include <windows.h>
-	#include <malloc.h>
 	#include <stdlib.h>
 	#include <string.h>
 	#include "MemMan.h"
 	#include "DEBUG.H"
 	#include <stdio.h>
 	#include "sgp_logger.h"
-	#ifdef _DEBUG
+	#if defined(_DEBUG) && defined(_MSC_VER)
 		#include <crtdbg.h>
 	#endif
 
@@ -227,7 +225,7 @@ void ShutdownMemoryManager( void )
 }
 
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER)
 
 PTR MemAllocReal( UINT32 uiSize, const STR8 pcFile, INT32 iLine )
 {
@@ -339,64 +337,51 @@ PTR MemReallocReal( PTR ptr, UINT32 uiSize, const STR8 pcFile, INT32 iLine )
 #endif
 
 
+// MemAllocLocked / MemFreeLocked were Win32-only wrappers around
+// VirtualAlloc + VirtualLock that pinned pages into physical RAM.
+// Page-locking is a privileged operation (requires admin on Windows;
+// mlock requires elevated rlimits on Linux) so the "locked" semantics
+// rarely held even on the platform they were written for. There are
+// currently no in-tree callers; the entry points are kept so
+// downstream out-of-tree code can still link, but they collapse to
+// plain malloc / free.
 PTR MemAllocLocked( UINT32 uiSize )
 {
-	PTR	ptr;
-
 	if ( !fMemManagerInit )
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemAllocLocked: Warning -- Memory manager not initialized!!! ") );
+		DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemAllocLocked: Warning -- Memory manager not initialized!!! ") );
 
-
-	ptr = VirtualAlloc( NULL, uiSize, MEM_COMMIT, PAGE_READWRITE );
-
+	PTR ptr = malloc( uiSize );
 	if ( ptr )
 	{
-	VirtualLock( ptr, uiSize );
-
 		guiMemTotal	+= uiSize;
 		guiMemAlloced += uiSize;
 		MemDebugCounter++;
 	}
 	else
 	{
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemAllocLocked failed: %d bytes", uiSize) );
+		DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemAllocLocked failed: %d bytes", uiSize) );
 	}
-
-#ifdef DEBUG_MEM_LEAKS
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_1, String("MemAllocLocked %p: %d bytes", ptr, uiSize) );
-#endif
-
-	return( ptr );
+	return ptr;
 }
 
 
 void MemFreeLocked( PTR ptr, UINT32 uiSize )
 {
 	if ( !fMemManagerInit )
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemFreeLocked: Warning -- Memory manager not initialized!!! ") );
-
+		DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemFreeLocked: Warning -- Memory manager not initialized!!! ") );
 
 	if (ptr != NULL)
 	{
-	VirtualUnlock( ptr, uiSize );
-	VirtualFree( ptr, 0, MEM_RELEASE );
-
+		free( ptr );
 		guiMemTotal -= uiSize;
 		guiMemFreed += uiSize;
 	}
 	else
 	{
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemFreeLocked ERROR: NULL ptr received, size %d", uiSize) );
+		DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_0, String("MemFreeLocked ERROR: NULL ptr received, size %d", uiSize) );
 	}
 
-	// count even a NULL ptr as a MemFree, not because it's really a memory leak, but because it is still an error of some
-	// sort (nobody should ever be freeing NULL pointers), and this will help in tracking it down if the above DbgMessage
-	// is not noticed.
 	MemDebugCounter--;
-
-#ifdef DEBUG_MEM_LEAKS
-	DbgMessage( TOPIC_MEMORY_MANAGER, DBG_LEVEL_1, String("MemFreeLocked	%p", ptr) );
-#endif
 }
 
 
@@ -414,14 +399,20 @@ void MemFreeLocked( PTR ptr, UINT32 uiSize )
 //
 //**************************************************************************
 
+// MemGetFree / MemGetTotalSystem previously called Win32
+// GlobalMemoryStatus. The only callers feed the returned values into
+// diagnostic ScreenMsg/Logger output; they aren't used for any
+// allocation decisions. Querying available physical RAM portably is
+// surprisingly platform-specific (sysconf on Linux, vm_statistics64
+// + host_statistics on macOS, GlobalMemoryStatusEx on Windows) and
+// the answer is noisy on every modern OS thanks to caching. Returning
+// 0 here keeps the diagnostic call sites running and avoids the
+// per-OS surface area; if the figure is ever needed for a real
+// decision, add a platform-specific implementation behind this entry
+// point.
 UINT32 MemGetFree( void )
 {
-	MEMORYSTATUS ms;
-
-	ms.dwLength = sizeof(MEMORYSTATUS);
-	GlobalMemoryStatus( &ms );
-
-	return( ms.dwAvailPhys );
+	return 0;
 }
 
 
@@ -441,12 +432,7 @@ UINT32 MemGetFree( void )
 
 UINT32 MemGetTotalSystem( void )
 {
-	MEMORYSTATUS ms;
-
-	ms.dwLength = sizeof(MEMORYSTATUS);
-	GlobalMemoryStatus( &ms );
-
-	return( ms.dwTotalPhys );
+	return 0;
 }
 
 
@@ -468,7 +454,7 @@ BOOLEAN MemCheckPool( void )
 {
 	BOOLEAN fRet = TRUE;
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER)
 
 	fRet = _CrtCheckMemory();
 	Assert( fRet );

@@ -955,10 +955,6 @@ void RenderOptionsScreen()
 void GetOptionsScreenUserInput()
 {
 	InputAtom Event;
-	POINT	MousePos;
-
-	GetCursorPos(&MousePos);
-	ScreenToClient(ghWindow, &MousePos); // In window coords!
 
 	while (DequeueSpecificEvent(&Event, KEY_DOWN|KEY_UP|KEY_REPEAT))
 	{

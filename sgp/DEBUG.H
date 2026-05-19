@@ -14,7 +14,9 @@
 #ifndef __DEBUG_MANAGER_
 #define __DEBUG_MANAGER_
 
+#ifdef _MSC_VER
 #include <crtdbg.h>
+#endif
 
 #include "types.h"
 #include "TopicOps.h"
@@ -158,7 +160,13 @@ extern bool	gfDebugTopics[MAX_TOPICS_ALLOTED];
 // the actual debug functions directly
 
 // Force a breakpoint in the debugger
-#define DebugBreakpoint()						__asm { int 3 }
+#if defined(__clang__) || defined(__GNUC__)
+#  define DebugBreakpoint()					__builtin_debugtrap()
+#elif defined(_MSC_VER)
+#  define DebugBreakpoint()					__debugbreak()
+#else
+#  define DebugBreakpoint()					((void)0)
+#endif
 
 
 #define DbgMessage(a, b, c)			(gfDebugTopics[(a)] ? DbgMessageReal((a), TOPIC_MESSAGE, (b), (c) ) : _Null())
@@ -271,7 +279,7 @@ namespace sgp
 #define SGP_RETHROW(msg, ex)				throw sgp::Exception( (msg), (ex) SGP_GET_CALLER_LOCATION )
 #define SGP_TRYCATCH_RETHROW(expr, msg)		try { (expr); } catch(std::exception &ex) { throw sgp::Exception((msg), (ex) SGP_GET_CALLER_LOCATION); }
 
-#define SGP_THROW_IFFALSE(cond, msg)		if((cond) == false) { throw sgp::Exception(msg SGP_GET_CALLER_LOCATION); }
+#define SGP_THROW_IFFALSE(cond, msg)		if(!(cond)) { throw sgp::Exception(msg SGP_GET_CALLER_LOCATION); }
 #define SGP_THROW_IFNULL(ptr, msg)			if((ptr) == NULL) { throw sgp::Exception(msg SGP_GET_CALLER_LOCATION); }
 
 #include <vfs/Core/vfs_debug.h>

@@ -86,7 +86,9 @@ extern	BOOLEAN	gfUseConsecutiveQuickSaveSlots;
 #endif
 
 
+#ifdef _WIN32
 extern	HINSTANCE					ghInstance;
+#endif
 
 //extern OBJECTTYPE GLOCK_17_ForUseWithLOS;//dnl ch86 120214
 

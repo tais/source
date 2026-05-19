@@ -18,6 +18,13 @@
 #include "strategic.h"
 #include "BaseTable.h"
 
+// Forward-declare the TestTableTemplate<4> specializations defined
+// later in this file so clang doesn't error out on
+// 'explicit specialization after instantiation' when the type is
+// first used at file scope above the specialization's definition.
+template<> void TestTableTemplate<4>::SetRefresh();
+template<> void TestTableTemplate<4>::Init( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End );
+
 /*#define		MERCOMP_FONT_COLOR								2
 #define		CAMPHIS_FONT_BIG								FONT14ARIAL
 #define		CAMPHIS_FONT_MED								FONT12ARIAL

@@ -1,5 +1,4 @@
 	#include "types.h"
-	#include "windows.h"
 	#include "FileMan.h"
 	#include "LibraryDataBase.h"
 	#include "MemMan.h"
@@ -979,10 +978,18 @@ BOOLEAN CheckIfFileIsAlreadyOpen( STR pFileName, INT16 sLibraryID )
 
 	CHAR8	sTempName[ 70 ];
 
-	_splitpath( pFileName, sDrive, sPath, sName, sExt);
-
-	strcpy( sTempName, sName );
-	strcat( sTempName, sExt );
+	// Take the filename portion (everything after the last path
+	// separator), accepting both '/' and '\\' so JA2's mixed Win/Unix
+	// path conventions work uniformly.
+	{
+		const char* base = pFileName;
+		for (const char* p = pFileName; *p; ++p) {
+			if (*p == '/' || *p == '\\') base = p + 1;
+		}
+		strncpy( sTempName, base, sizeof(sTempName) - 1 );
+		sTempName[sizeof(sTempName) - 1] = '\0';
+		sDrive[0] = sPath[0] = sName[0] = sExt[0] = '\0';
+	}
 
 	//loop through all the open files to see if 'new' file to open is already open
 	for( usLoop1=1; usLoop1 < gFileDataBase.pLibraries[ sLibraryID ].iSizeOfOpenFileArray ; usLoop1++ )

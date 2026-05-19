@@ -700,8 +700,13 @@ void GetLaptopKeyboardInput()
 	InputAtom					InputEvent;
 	POINT	MousePos;
 
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 
 	fTabHandled = FALSE;
 
@@ -2352,6 +2357,10 @@ UINT32 LaptopScreenHandle()
 	EnterLaptop();
 	CreateLaptopButtons();
 	gfEnterLapTop=FALSE;
+	// SDL3 port: ensure the laptop background paints on first entry.
+	// In the Win32 build the DirectDraw flip cycle effectively forced a
+	// redraw here; without this flag we land in laptop with a black canvas.
+	fReDrawScreenFlag = TRUE;
 	}
 
 	if( gfStartMapScreenToLaptopTransition )
@@ -3832,8 +3841,13 @@ void
 CheckIfMouseLeaveScreen()
 {
  	POINT	MousePos;
+#ifdef _WIN32
 	GetCursorPos(&MousePos);
 	ScreenToClient(ghWindow, &MousePos); // In window coords!
+#else
+	MousePos.x = gusMouseXPos;
+	MousePos.y = gusMouseYPos;
+#endif
 	if((MousePos.x >LAPTOP_SCREEN_LR_X )||(MousePos.x<LAPTOP_UL_X)||(MousePos.y<LAPTOP_UL_Y )||(MousePos.y >LAPTOP_SCREEN_LR_Y))
 	{
 		guiCurrentLapTopCursor=LAPTOP_PANEL_CURSOR;

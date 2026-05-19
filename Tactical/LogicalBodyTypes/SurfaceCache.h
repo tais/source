@@ -40,7 +40,7 @@ private:
 	CacheEntry* oldest;
     SurfaceVector surfaceVector;
 	static bool LoadSurface(AnimationSurfaceType* animSurfaceType, STRUCTURE_FILE_REF* pStructureFileRef);
-	static bool SurfaceCache::UnloadSurface(AnimationSurfaceType* animSurfaceType);
+	static bool UnloadSurface(AnimationSurfaceType* animSurfaceType);
 
 };
 

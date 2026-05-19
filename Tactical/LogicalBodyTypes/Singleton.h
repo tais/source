@@ -3,6 +3,7 @@
 #define _LBT_SINGLETON__H_
 
 #include <cassert>
+#include <cstdlib>
 
 /*
 Not thread safe. Copied from the codeproject (Author: Lai Shiaw San Kent)
@@ -42,7 +43,7 @@ private :
 };
 
 
-template<typename T> typename T& Singleton<T>::Instance() {
+template<typename T> T& Singleton<T>::Instance() {
     if (Singleton::instance_ == 0) {
         Singleton::instance_ = CreateInstance();
         ScheduleForDestruction(Singleton::Destroy);
@@ -59,7 +60,7 @@ void Singleton<T>::Destroy() {
 }
 
 template<typename T>
-inline typename T* Singleton<T>::CreateInstance() {
+inline T* Singleton<T>::CreateInstance() {
     return new T();
 }
 
@@ -74,6 +75,6 @@ inline void Singleton<T>::DestroyInstance(T* p) {
 }
 
 template<typename T>
-typename T* Singleton<T>::instance_ = 0;
+T* Singleton<T>::instance_ = 0;
 
 #endif

@@ -24,6 +24,7 @@
 
 #include "Utilities.h"
 
+
 UINT32 guiShieldGraphic = 0;
 BOOLEAN fShieldGraphicInit = FALSE;
 #define WALLDAMAGEGRAPHICS_MAX		2
@@ -345,6 +346,16 @@ UINT8	gubNewScrollIDSpeeds[ ]		= { 10, 10, 20, 20,  20 };
 UINT8	gubScrollSpeedStartID		= 2;
 UINT8	gubScrollSpeedEndID			= 4;
 UINT8	gubCurScrollSpeedID			= 1;
+// SDL3 port: keep gfDoVideoScroll=TRUE so ScrollBackground takes its
+// "accumulate scroll delta" branch (which avoids the eager
+// RenderStaticWorldRect that the FALSE branch does on EVERY input event,
+// which would do a partial render and pollute FB). The actual screen
+// blit-shift that the legacy DirectDraw video.cpp did at present time
+// is now a no-op on our SDL3 path: every frame we ColorFill the entire
+// viewport and rely on RenderWorld's RENDER_FLAG_FULL pass to repaint
+// it from scratch. This is the cleanest model -- "clear view, redraw
+// everything" -- and removes the entire class of "stale prev-frame
+// pixels leaking through coverage gaps" bug.
 BOOLEAN	gfDoVideoScroll				= TRUE;
 BOOLEAN	gfDoSubtileScroll			= FALSE;
 BOOLEAN	gfScrollPending				= FALSE;
@@ -1186,7 +1197,6 @@ MONSTERS BE HERE!
 */
 static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY_M, INT32 iStartPointX_S, INT32 iStartPointY_S, INT32 iEndXS, INT32 iEndYS, UINT8 ubNumLevels, UINT32 *puiLevels, UINT16 *psLevelIDs)
 {
-
 	//#if 0
 
 	LEVELNODE		*pNode; //, *pLand, *pStruct; //*pObject, *pTopmost, *pMerc;
@@ -1368,7 +1378,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 					uiTileIndex = iTileMapPos[uiMapPosIndex];
 					uiMapPosIndex++;
 
-					//if ( 0 )					
+					//if ( 0 )
 					if (!TileIsOutOfBounds(uiTileIndex))
 					{
 						// OK, we're searching through this loop anyway, might as well check for mouse position
@@ -1430,15 +1440,38 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 							if (fCheckForRedundency)
 							{
-								if ((gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REDUNDENT))
-								{
-									// IF WE DONOT WANT TO RE-EVALUATE FIRST
-									if (!(gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REEVALUATE_REDUNDENCY) && !(gTacticalStatus.uiFlags & NOHIDE_REDUNDENCY))
-									{
-										pNode = NULL;
-										break;
-									}
-								}
+								// SDL3 port: bypass the LAND/OBJECT-hidden-by-
+								// structure short-circuit. The legacy optimization
+								// skips the per-tile pNode chain when a structure
+								// above is known to fully cover the LAND, relying on
+								// the persistent back-buffer to keep last frame's
+								// already-rendered pixels in place. Two reasons we
+								// can't use it on the SDL3 path:
+								//   1. The streaming-texture pipeline can't cheaply
+								//      preserve pixel state across frames + camera
+								//      shifts the way DirectDraw could. After a
+								//      scroll, screen positions that were a covered
+								//      tile last frame may now correspond to a
+								//      different world tile -- skipping that tile's
+								//      render leaves a ghost from the prev camera.
+								//   2. fCheckForRedundency is set on STATIC OBJECTS
+								//      too (RenderFX table position 6). Objects with
+								//      sprites that extend well beyond their grid
+								//      tile (trees, large items, etc.) leave a tall
+								//      ghost above their old pivot when the tile gets
+								//      short-circuited during scroll. This was the
+								//      "buildings duplicating" + "merc face/text
+								//      artefacts" the user reported.
+								//
+								// Original short-circuit kept for reference:
+								// if ((gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REDUNDENT))
+								// {
+								//     if (!(gpWorldLevelData[uiTileIndex].uiFlags & MAPELEMENT_REEVALUATE_REDUNDENCY) && !(gTacticalStatus.uiFlags & NOHIDE_REDUNDENCY))
+								//     {
+								//         pNode = NULL;
+								//         break;
+								//     }
+								// }
 							}
 
 							// Force z-buffer blitting for marked tiles ( even ground!)
@@ -3157,9 +3190,16 @@ UINT32 cnt = 0;
 		SetRenderFlags(RENDER_FLAG_FULL);
 	}
 
-
-//	SetRenderFlags(RENDER_FLAG_FULL);
-
+	// SDL3 port: forced-FULL-every-frame and viewport pre-clear were
+	// Phase-6m emergency workarounds for the LAND-pixels-not-rendering
+	// bug; Phase 6n found the real cause (MAPELEMENT_REDUNDENT short-
+	// circuit + no framebuffer persistence) and Phase 6 (this commit)
+	// fixed it the stracciatella way -- ScrollJA2Background-style shift
+	// of FRAME_BUFFER + SAVEBUFFER in lockstep with the camera, so the
+	// legacy incremental-render model just works again. Engine drives
+	// the FULL flag on its own (scroll-stop, UI/modal changes, fade-in
+	// completion, etc.); other frames do only the dynamic re-render +
+	// scroll-strip render and rely on FB persistence for the bulk.
 
 
 	// FOR NOW< HERE, UPDATE ANIMATED TILES
@@ -3990,7 +4030,13 @@ void ScrollWorld( )
 
 	if ( gfIgnoreScrollDueToCenterAdjust )
 	{
-		//	gfIgnoreScrollDueToCenterAdjust = FALSE;
+		// The flag is a one-frame guard set by SetRenderCenter() to
+		// skip scrolling on the same frame the view recentered. The
+		// reset line was commented out which made it sticky: once set
+		// (e.g. on initial tactical screen entry), scrolling stayed
+		// disabled permanently and arrow keys + mouse-edge pan never
+		// did anything.
+		gfIgnoreScrollDueToCenterAdjust = FALSE;
 		return;
 	}
 
@@ -4945,6 +4991,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClip( UINT16 *pBuffer, UINT32 uiDestPit
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -5203,6 +5250,7 @@ RSLoop2:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 }
@@ -5343,6 +5391,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncClipZSameZBurnsThrough( UINT16 *pBuffer
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -5601,6 +5650,7 @@ RSLoop2:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 }
@@ -5747,6 +5797,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZIncObscureClip( UINT16 *pBuffer, UINT32 ui
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -6025,6 +6076,7 @@ RSLoop2:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 }
@@ -6161,6 +6213,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClip(UINT16 *pBuffer,
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -6456,6 +6509,7 @@ RSLoop2:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 }
@@ -6594,6 +6648,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(UINT16 *pBu
 	usZLevel = usZStartLevel;
 	usZIndex = usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -6968,6 +7023,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncObscureClipAlpha(UINT16 *pBu
 
 			BlitDone :
 	}
+#endif
 
 	return(TRUE);
 }
@@ -7139,6 +7195,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClip(UINT16 *pBuffer, UINT32
 	usZLevel=usZStartLevel;
 	usZIndex=usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -7413,6 +7470,7 @@ RSLoop2:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 }
@@ -7549,6 +7607,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(UINT16 *pBuffer, U
 	usZLevel = usZStartLevel;
 	usZIndex = usZStartIndex;
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -7903,6 +7962,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransZTransShadowIncClipAlpha(UINT16 *pBuffer, U
 
 			BlitDone :
 	}
+#endif
 
 	return(TRUE);
 }
@@ -8647,6 +8707,7 @@ BOOLEAN Zero8BPPDataTo16BPPBufferTransparent( UINT16 *pBuffer, UINT32 uiDestPitc
 	DestPtr = (UINT8 *)pBuffer + (uiDestPitchBYTES*iTempY) + (iTempX*2);
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -8729,6 +8790,7 @@ BlitDoneLine:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 
@@ -8771,6 +8833,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransInvZ( UINT16 *pBuffer, UINT32 uiDestPitchBY
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -8839,6 +8902,7 @@ BlitDoneLine:
 
 BlitDone:
 	}
+#endif
 
 	return(TRUE);
 
@@ -8881,6 +8945,7 @@ BOOLEAN IsTileRedundent( UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZVa
 	p16BPPPalette = hSrcVObject->pShadeCurrent;
 	LineSkip=(uiDestPitchBYTES-(usWidth*2));
 
+#ifdef _WIN32
 	__asm {
 
 		mov		esi, SrcPtr
@@ -8943,6 +9008,7 @@ BlitDoneLine:
 
 BlitDone:
 	}
+#endif
 
 	return(fHidden);
 

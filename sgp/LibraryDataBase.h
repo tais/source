@@ -2,7 +2,9 @@
 #define _LIBRARY_DATABASE_H
 
 #include "types.h"
+#ifdef _WIN32
 #include "windows.h"
+#endif
 #include "FileMan.h"
 
 #define	FILENAME_SIZE									256
@@ -26,7 +28,7 @@
 #define DB_ADD_LIBRARY_ID( exp )				( exp << DB_BITS_FOR_FILE_ID )
 #define DB_ADD_FILE_ID( exp )						( exp & 0xC00000 )
 
-typedef	UINT32	HWFILE;
+typedef	uintptr_t	HWFILE;  // pointer-wide to hold vfs::IBaseFile*; see types.h
 
 
 typedef struct
