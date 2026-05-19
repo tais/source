@@ -30,7 +30,13 @@
 #include <vfs/Core/vfs_path.h>
 #include <list>
 
-#ifdef _MSC_VER
+// Forward declaration of std::exception with the VFS_API dllimport
+// decoration. Standard C++ doesn't allow a nested name specifier in
+// a forward declaration; pre-clang MSVC accepted it as an extension.
+// Clang (including when masquerading as MSVC via `_MSC_VER`) rejects
+// it. We don't need the decoration -- <exception> is in the standard
+// library, not in a VFS-owned DLL.
+#if defined(_MSC_VER) && !defined(__clang__)
 class VFS_API std::exception;
 #endif
 
