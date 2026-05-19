@@ -318,13 +318,7 @@ foreach(app IN LISTS ApplicationTargets)
       sgp/sgp.cpp
       ${exe_platform_sources}
     )
-    target_link_libraries(${exe} PRIVATE ${Ja2_Libraries} $<IF:${usingMsBuild},legacy_stdio_definitions.lib,>)
     target_link_libraries(${exe} PRIVATE SDL3::SDL3)
-    if(TARGET EXPAT::EXPAT)
-      target_link_libraries(${exe} PRIVATE EXPAT::EXPAT)
-    elseif(TARGET expat)
-      target_link_libraries(${exe} PRIVATE expat)
-    endif()
     target_link_options(${exe} PRIVATE $<IF:${usingMsBuild},/SAFESEH:NO,>)
     target_compile_definitions(${exe} PRIVATE ${compilationFlags} ${debugFlags})
 
@@ -333,12 +327,27 @@ foreach(app IN LISTS ApplicationTargets)
     add_library(${language_library} STATIC)
     target_sources(${language_library} PRIVATE ${i18nSrc})
     target_compile_definitions(${language_library} PRIVATE ${compilationFlags} ${debugFlags} ${lang})
-    target_link_libraries(${exe} PRIVATE ${language_library})
 
-    # go through all game libraries again and link them to the app/language executable
+    # JA2's internal static libs have cyclic symbol refs (Tactical <->
+    # TileEngine <-> sgp <-> ..., Strategic <-> lua, JA2 libs <-> expat).
+    # GNU ld is single-pass so wrap them in --start-group/--end-group;
+    # Apple ld resolves the same archives without help.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(${exe} PRIVATE -Wl,--start-group)
+    endif()
+    target_link_libraries(${exe} PRIVATE ${Ja2_Libraries} $<IF:${usingMsBuild},legacy_stdio_definitions.lib,>)
+    target_link_libraries(${exe} PRIVATE ${language_library})
     foreach(lib IN LISTS Ja2_Libs)
       target_link_libraries(${exe} PRIVATE ${app}_${lib})
     endforeach()
+    if(TARGET EXPAT::EXPAT)
+      target_link_libraries(${exe} PRIVATE EXPAT::EXPAT)
+    elseif(TARGET expat)
+      target_link_libraries(${exe} PRIVATE expat)
+    endif()
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(${exe} PRIVATE -Wl,--end-group)
+    endif()
   endforeach()
 
   # for SGP only
