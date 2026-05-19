@@ -473,7 +473,7 @@ INT16 WinFontStringPixLength( STR16 string2, INT32 iFont )
 	if (pWinFont == NULL) return(0);
 
 if(g_lang == i18n::Lang::zh) {
-	wchar_t *p=string2;
+	const wchar_t *p=string2;
     UINT32 size = 0;
 	while (*p!=0)
 	{
