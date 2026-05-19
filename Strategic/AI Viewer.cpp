@@ -222,7 +222,7 @@ CHAR16 gwGroupTypeString[ NUM_ENEMY_INTENTIONS ][ 20 ] =
 };
 
 
-void StringFromValue( STR16 str, INT32 iValue, UINT32 uiMax )
+void StringFromValue( CHAR16 *str, INT32 iValue, UINT32 uiMax )
 {
 	if( iValue < 0 )			//a blank string is determined by a negative value.
 		str[0] = '\0';
