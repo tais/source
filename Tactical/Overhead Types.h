@@ -406,15 +406,31 @@ typedef struct SoldierID
 			i = TOTAL_SOLDIERS;
 	}
 
-	// 64-bit integer overloads -- needed because clang/libc++ treats long
-	// as a distinct integer type from int, so e.g. lua_Integer (long)
-	// can't disambiguate between the INT32 and UINT32 ctors above.
+	// 64-bit integer overloads. clang/libc++ treats `long` as a
+	// distinct integer type from `int`, so e.g. lua_Integer can't
+	// disambiguate between the INT32 and UINT32 ctors above. The
+	// underlying type of lua_Integer depends on the platform model:
+	//   * LP64 (Linux/macOS x86_64, arm64): lua_Integer == long (64-bit)
+	//   * LLP64 (Windows): lua_Integer == long long (64-bit; `long`
+	//     is 32-bit there)
+	// Provide both `long` and `long long` overloads so lua_Integer
+	// resolves unambiguously on every platform.
 	constexpr SoldierID( const long val ) : i( (UINT16)val )
 	{
 		if ( val > TOTAL_SOLDIERS || val < 0 )
 			i = TOTAL_SOLDIERS;
 	}
 	constexpr SoldierID( const unsigned long val ) : i( (UINT16)val )
+	{
+		if ( val > TOTAL_SOLDIERS )
+			i = TOTAL_SOLDIERS;
+	}
+	constexpr SoldierID( const long long val ) : i( (UINT16)val )
+	{
+		if ( val > TOTAL_SOLDIERS || val < 0 )
+			i = TOTAL_SOLDIERS;
+	}
+	constexpr SoldierID( const unsigned long long val ) : i( (UINT16)val )
 	{
 		if ( val > TOTAL_SOLDIERS )
 			i = TOTAL_SOLDIERS;
