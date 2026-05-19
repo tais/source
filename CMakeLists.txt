@@ -115,6 +115,10 @@ target_include_directories(libsmacker PUBLIC "${libsmacker_SOURCE_DIR}")
 # libsmacker is upstream C89; quiet the warnings so our build stays
 # clean. The library itself is well-tested and stable.
 target_compile_options(libsmacker PRIVATE -w)
+# Expose smacker.h on the JA2 include search path so Utils/Cinematics.cpp
+# (which lives in JA2_Utils, not JA2_sgp) can pick it up. The target's
+# PUBLIC include_directories only propagates to direct linkers.
+include_directories("${libsmacker_SOURCE_DIR}")
 
 add_compile_definitions(CINTERFACE XML_STATIC VFS_STATIC VFS_WITH_SLF VFS_WITH_7ZIP _CRT_SECURE_NO_DEPRECATE)
 include_directories(

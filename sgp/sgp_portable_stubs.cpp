@@ -55,17 +55,10 @@ INT32   ParseKeyString(STR8)     { return 0; }
 //      ever draws
 //   2. return a next-screen id that gets us out of the intro --
 //      INIT_SCREEN per the real INTRO_SPLASH path in Ja2/Intro.cpp
-#include "screenids.h"
-extern BOOLEAN gfDoneWithSplashScreen;
-UINT32 IntroScreenInit()         { return 1; }
-UINT32 IntroScreenHandle()       {
-	gfDoneWithSplashScreen = TRUE;
-	return INIT_SCREEN;
-}
-UINT32 IntroScreenShutdown()     { return 1; }
-void   SetIntroType(INT8)        {}
-void   StopIntroVideo()          {}
-void   DisplaySirtechSplashScreen() {}
+// Intro screen stubs lived here during the Phase 6 strangler-fig
+// period when Ja2/Intro.cpp was Win32-only. Phase 6u rewires that
+// file behind libsmacker so it compiles on every platform; the real
+// IntroScreenInit / IntroScreenHandle / etc. now come from there.
 
 // ---- connect.h (Multiplayer) -----------------------------------------------
 bool can_edgechange()            { return false; }

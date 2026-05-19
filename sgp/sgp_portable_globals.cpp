@@ -21,10 +21,9 @@ BOOLEAN gfNextRefreshFullScreen = FALSE;
 
 // (giMemUsedInSurfaces + ghFrameBuffer are now owned by sdl_vsurface.cpp.)
 
-// ---- Intro.cpp (Phase 8) ---------------------------------------------------
-UINT32  gbIntroScreenMode     = 0;
-BOOLEAN gfIntroScreenExit     = FALSE;
-UINT32  guiIntroExitScreen    = 0;
+// Intro-screen globals moved back to Ja2/Intro.cpp in Phase 6u, when
+// libsmacker took over for binkw32 and the Intro module stopped being
+// Win32-only.
 
 // ---- WinFont.cpp (Phase 9) -------------------------------------------------
 INT32   TOOLTIP_IFONT         = -1;

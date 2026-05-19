@@ -415,4 +415,17 @@ UINT16 GetNumberOfBits( UINT32 uiMask )
 void				BinkShutdownVideo(void)
 {
 }
+#else // !_WIN32
+
+// Non-Windows: no Bink support. JA2 ships no .BIK files so the
+// VideoPlayer state machine in Intro.cpp never actually exercises
+// these. Stubs so it links.
+#include "Cinematics Bink.h"
+
+void     BinkInitialize(void*, UINT32, UINT32) {}
+BOOLEAN  BinkPollFlics(void) { return FALSE; }
+void     BinkCloseFlic(BINKFLIC*) {}
+void     BinkShutdownVideo(void) {}
+BINKFLIC* BinkPlayFlic(const CHAR8*, UINT32, UINT32, UINT32) { return nullptr; }
+
 #endif // _WIN32

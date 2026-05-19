@@ -1,67 +1,22 @@
 #ifndef _CINEMATICS_H_
 #define _CINEMATICS_H_
 
-#ifdef _WIN32
-#include "SMACK.H"
+#include "types.h"
 
-struct SMKFLIC
-{
-		const CHAR8					*cFilename;
-//		HFILE						hFileHandle;
-		HWFILE						hFileHandle;
-		Smack						*SmackHandle;
-		SmackBuf					*SmackBuffer;
-		UINT32						uiFlags;
-		LPDIRECTDRAWSURFACE2		lpDDS;
-		HWND						hWindow;
-		UINT32						uiFrame;
-		UINT32						uiLeft, uiTop;
-//		LPDIRECTDRAW2				lpDD;
-//		UINT32						uiNumFrames;
-//		UINT8						*pAudioData;
-//		UINT8						*pCueData;
-};
+// SMKFLIC is opaque to callers; the implementation owns the libsmacker
+// handle, palette/frame buffers, timing state, and blit position.
+// Callers only ever see a pointer returned from SmkPlayFlic/SmkOpenFlic.
+struct SMKFLIC;
 
-void			SmkInitialize(HWND hWindow, UINT32 uiWidth, UINT32 uiHeight);
-void			SmkShutdown(void);
-SMKFLIC			*SmkPlayFlic(const CHAR8 *cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEAN fAutoClose);
-BOOLEAN			SmkPollFlics(void);
-SMKFLIC			*SmkOpenFlic(const CHAR8 *cFilename);
-void			SmkSetBlitPosition(SMKFLIC *pSmack, UINT32 uiLeft, UINT32 uiTop);
-void			SmkCloseFlic(SMKFLIC *pSmack);
-SMKFLIC			*SmkGetFreeFlic(void);
-#endif // _WIN32
+void    SmkInitialize(void* hWindow, UINT32 uiWidth, UINT32 uiHeight);
+void    SmkShutdown(void);
 
-/*
-//--------------------------------------------------------------------------
-// Prototypes etc. for our functions that make use of the Smacker library.
-//
-// Written by Derek Beland, Jan 11, 1995
+SMKFLIC* SmkPlayFlic(const CHAR8* cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEAN fAutoClose);
 
-#define FLICSOUNDID		"BLAH"	// ID for smack flic w/ sound :)
+BOOLEAN  SmkPollFlics(void);
 
-typedef struct {
-	unsigned long offset;
-	unsigned long length;
-} SMPLARRAY;
+SMKFLIC* SmkOpenFlic(const CHAR8* cFilename);
+void     SmkSetBlitPosition(SMKFLIC* pSmack, UINT32 uiLeft, UINT32 uiTop);
+void     SmkCloseFlic(SMKFLIC* pSmack);
 
-extern SmackBuf *sbuf;
-extern Smack *smk;
-extern int smktag;
-extern HANDLE smkhandle;
-extern int SmackFlicIsOpened;
-extern int SmackFlicIsPlaying;
-
-
-HANDLE OpenSmackFlic(char *fname,Smack **s,u32);
-int GetNextCue(void);
-void PlayCueSamples(void);
-void InitFlicSamples(HANDLE fhandle);
-void FreeFlicSamples(void);
-
-int SmackPlayFlic(char *,u32);
-void SmackShowNextFrame(void);
-void CloseSmackFlic(void);
-void InitPal(HWND wh);
-*/
 #endif
