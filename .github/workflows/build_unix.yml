@@ -72,17 +72,21 @@ jobs:
         if: matrix.platform == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Select clang-cl toolchain (Windows)
+      - name: Select clang toolchain (Windows)
         if: matrix.platform == 'windows'
         shell: bash
         run: |
-          # clang-cl is the LLVM clang driver in MSVC-compatible mode.
-          # It accepts `-Wno-error=address-of-temporary` (clang-only)
-          # the same as Linux/macOS clang, and links against the
-          # standard MSVC runtime so the resulting .exe doesn't need
-          # extra runtime DLLs alongside the SDL3/mixer ones.
-          echo "CC=clang-cl"  >> $GITHUB_ENV
-          echo "CXX=clang-cl" >> $GITHUB_ENV
+          # Use clang's GCC-compat driver (not clang-cl) targeting
+          # the MSVC ABI. clang-cl reports CMAKE_C_SIMULATE_ID=MSVC,
+          # which makes opus's CMake skip its GNU-style `-msse4.1`
+          # flag and the SSE4.1 intrinsics fail to compile. The GCC
+          # driver gets the right per-source feature flags added by
+          # opus and friends, while `--target=x86_64-pc-windows-msvc`
+          # keeps us linking against the standard MSVC runtime.
+          echo "CC=clang"                                  >> $GITHUB_ENV
+          echo "CXX=clang++"                               >> $GITHUB_ENV
+          echo "CFLAGS=--target=x86_64-pc-windows-msvc"    >> $GITHUB_ENV
+          echo "CXXFLAGS=--target=x86_64-pc-windows-msvc"  >> $GITHUB_ENV
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLanguages=ENGLISH -DApplications=JA2
