@@ -486,7 +486,7 @@ BOOLEAN FileReadLine( HWFILE hFile, std::string* pDest )
 //
 //**************************************************************************
 
-BOOLEAN FileWrite( HWFILE hFile, PTR pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten )
+BOOLEAN FileWrite( HWFILE hFile, const void *pDest, UINT32 uiBytesToWrite, UINT32 *puiBytesWritten )
 {
 	if(uiBytesToWrite == 0)//dnl ch38 110909
 	{
@@ -803,7 +803,7 @@ BOOLEAN GetFileManCurrentDirectory( STRING512 pcDirectory )
 // Removes ALL FILES in the specified directory (and all subdirectories with their files if fRecursive is TRUE)
 // Use EraseDirectory() to simply delete directory contents without deleting the directory itself
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-BOOLEAN RemoveFileManDirectory( STRING512 pcDirectory, BOOLEAN fRecursive )
+BOOLEAN RemoveFileManDirectory( const CHAR8 *pcDirectory, BOOLEAN fRecursive )
 {
 	// ignore 'recursive' flag, just delete every file in that subtree (but leave the directories)
 	return getVFS()->removeDirectoryFromFS(pcDirectory);
@@ -814,7 +814,7 @@ BOOLEAN RemoveFileManDirectory( STRING512 pcDirectory, BOOLEAN fRecursive )
 // Removes ALL FILES in the specified directory but leaves the directory alone.	Does not affect any subdirectories!
 // Use RemoveFilemanDirectory() to also delete the directory itself, or to recursively delete subdirectories.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-BOOLEAN EraseDirectory( STRING512 pcDirectory)
+BOOLEAN EraseDirectory( const CHAR8 *pcDirectory)
 {
 	// ignore 'recursive' flag, just delete every file in that subtree (but leave the directories)
 	return getVFS()->removeDirectoryFromFS(pcDirectory);
@@ -830,7 +830,7 @@ BOOLEAN GetExecutableDirectory( STRING512 pcDirectory )
 }
 
 static vfs::CVirtualFileSystem::Iterator file_iter; 
-BOOLEAN GetFileFirst( CHAR8 * pSpec, GETFILESTRUCT *pGFStruct )
+BOOLEAN GetFileFirst( const CHAR8 *pSpec, GETFILESTRUCT *pGFStruct )
 {
 	CHECKF( pSpec != NULL );
 	CHECKF( pGFStruct != NULL );
@@ -926,7 +926,7 @@ UINT32 FileSize(STR strFilename)
 
 
 // Flugente: simple wrapper to check whether an audio file in mp3/ogg/wav format exists
-BOOLEAN	SoundFileExists( STR strFilename, STR zFoundFilename )
+BOOLEAN	SoundFileExists( STR strFilename, CHAR8 *zFoundFilename )
 {
 	sprintf( zFoundFilename, "%s.mp3", strFilename );
 	if ( !FileExists( zFoundFilename ) )

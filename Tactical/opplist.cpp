@@ -3084,7 +3084,7 @@ void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
 			(pOpponent->aiData.bOppList[ubTarget] == SEEN_CURRENTLY)
 
 				)
-				///*** UNTIL ANDREW GETS THE SIDE PARAMETERS WORKING
+				//*** UNTIL ANDREW GETS THE SIDE PARAMETERS WORKING
 			// && (pSoldier->side != pOpponent->side))
 		{
 		 RemoveOneOpponent(pOpponent);
@@ -4691,7 +4691,7 @@ void DebugSoldierPage3( )
 
 }
 
-void AppendAttachmentCode( UINT16 usItem, STR16 str )
+void AppendAttachmentCode( UINT16 usItem, CHAR16 *str )
 {
 	switch( usItem )
 	{

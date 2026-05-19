@@ -47,7 +47,7 @@ void Hide( void )
 BOOLEAN Popup_OptionOff( void )	{ return FALSE; }
 
 void
-SkillMenuItem::SetupPopup(CHAR* name)
+SkillMenuItem::SetupPopup(const CHAR *name)
 {
 	// create a popup
 	gPopup = new POPUP(name);

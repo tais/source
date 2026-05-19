@@ -10,7 +10,7 @@ EnumeratorDB::EnumeratorDB() {
 EnumeratorDB::~EnumeratorDB(void) {
 }
 
-void EnumeratorDB::AddEnum(std::string enumName, int num, char* strEnumerators, ...) {
+void EnumeratorDB::AddEnum(std::string enumName, int num, const char *strEnumerators, ...) {
 	int strLen = strlen(strEnumerators);
 	char* str = new char[strLen + 1];
 	strcpy(str, strEnumerators);

@@ -12,7 +12,7 @@
 #endif
 
 
-void LiveMessage( CHAR8 *strMessage);
+void LiveMessage( const CHAR8 *strMessage);
 
 void MPDebugMsg( CHAR8 *strMessage);
 

@@ -212,7 +212,7 @@ enum SpreadPatternMethod_enum
 	SPREADPATTERNMETHOD_ELLIPSE,
 	SPREADPATTERNMETHOD_COUNT,
 };
-extern char *gSpreadPatternMethodNames[];
+extern const char *gSpreadPatternMethodNames[];
 extern int giSpreadPatternMethod_Default;
 typedef struct SpreadPattern_struct
 {

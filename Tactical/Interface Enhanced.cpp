@@ -6664,7 +6664,7 @@ if( g_lang == i18n::Lang::zh ) {
 	SetFontForeground( 6 );
 }
 
-void DrawPropertyTextInColour( CHAR16	pText[ 100 ], UINT8 ubNumLine, UINT8 ubNumRegion, UINT16 uiOverwriteColour = 0 )
+void DrawPropertyTextInColour( const CHAR16 *pText, UINT8 ubNumLine, UINT8 ubNumRegion, UINT16 uiOverwriteColour = 0 )
 {
 	static CHAR16	pStr[ 100 ];
 	INT16			usX, usY;

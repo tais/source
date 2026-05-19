@@ -90,7 +90,7 @@ UINT32 FPMult32(UINT32 uiA, UINT32 uiB)
 //zilpin: pellet spread patterns externalized in XML
 t_SpreadPattern  *gpSpreadPattern=NULL;
 INT32 giSpreadPatternCount=0;
-char * gSpreadPatternMethodNames[] = {"RECTANGLE","DIAMOND","ELLIPSE",NULL};
+const char * gSpreadPatternMethodNames[] = {"RECTANGLE","DIAMOND","ELLIPSE",NULL};
 int giSpreadPatternMethod_Default = SPREADPATTERNMETHOD_ELLIPSE;
 //zilpin: ddShotgunSpread is only used as a backup if the XML file does not exist.
 static DOUBLE ddShotgunSpread[3][BUCKSHOT_SHOTS][2] =

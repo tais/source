@@ -35,7 +35,7 @@ void HideVehicleMenu( void )
 BOOLEAN Popup_VehicleMenuOptionOff( void )	{ return FALSE; }
 
 void
-VehicleMenuItem::SetupPopup(CHAR* name)
+VehicleMenuItem::SetupPopup(const CHAR *name)
 {
 	// create a popup
 	gPopup = new POPUP(name);

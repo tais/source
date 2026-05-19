@@ -14998,7 +14998,7 @@ BOOLEAN OBJECTTYPE::TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex
 			// It has been removed. Lets reset all the Description Box extra variables.
 			// Note that by doing this, we actually trigger closing the description box later down the line.
 			pParent = NULL;
-			gfItemDescObjectIsAttachment = NULL;
+			gfItemDescObjectIsAttachment = FALSE;
 			gpItemDescPrevObject = NULL;
 			fRemoved = TRUE;
 		}
@@ -15506,7 +15506,7 @@ FLOAT GetItemDirtIncreaseFactor( OBJECTTYPE * pObj, BOOLEAN fConsiderAmmo )
 }
 
 // Flugente: retrieve a specific clothes item, if such a thing exists
-BOOLEAN	GetFirstClothesItemWithSpecificData( UINT16* pusItem, PaletteRepID aPalVest, PaletteRepID aPalPants )
+BOOLEAN	GetFirstClothesItemWithSpecificData( UINT16* pusItem, const CHAR8 *aPalVest, const CHAR8 *aPalPants )
 {
 	bool vestok  = FALSE;
 	bool pantsok = FALSE;

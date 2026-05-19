@@ -1196,6 +1196,86 @@ all three platforms.
 
 ---
 
+## Build hygiene — warning cleanup
+
+Tracked on branch `warning-cleanup` (off `master` after the SDL3-port
+merge). The goal is to drive the build log noise down so a fresh
+contributor can spot a real new warning. Starting baseline was
+~30,000 warnings on a clean macOS Debug build.
+
+### Wave 1 — `STR`/`STR8`/`STR16` const-correctness ✅
+Flipped the typedefs in `sgp/types.h`:
+```cpp
+typedef const CHAR8 *  STR;
+typedef const CHAR8 *  STR8;
+typedef const CHAR16 * STR16;
+```
+These exist to receive string literals at function boundaries. Use
+plain `CHAR8 *` / `CHAR16 *` (or a typed buffer like `CHAR8 buf[N]`)
+when the param is actually a writable destination.
+
+The flip cascaded into 440 errors across 61 files — every site that
+was using `STR8`/`STR16` incorrectly as a writable buffer. Fixed
+each by either typing the parameter mutable (`CHAR8 *`) when the
+function genuinely writes, or by adding `const` to the receiver when
+it doesn't. Net diff: 109 files, +268/-261 lines.
+
+Result: **`-Wwritable-strings` from 28,214 → 0**.
+
+### Wave 2 — `-Wcomment`, `-Wnull-conversion`, residual `-Wwritable-strings` ✅
+Three smaller categories:
+- `-Wcomment` (263 → 0): two real comment bugs (a `/*` inside an
+  already-open block comment, a `///***` that clang read as `//` +
+  inner `/*`).
+- `-Wnull-conversion` (270 → 0): 9 sites where `NULL` was passed to
+  `UINT8`/`HWFILE`/`BOOLEAN`/`bool`. Almost all were real bugs
+  (caller meant `0`, `FALSE`, or `false`).
+- `-Wwritable-strings` (190 → 0): supply-side fixes for plain
+  `char *`/`CHAR8 *`/`CHAR16 *` params (not `STR8`/`STR16`) that
+  received literals. Same fix pattern as Wave 1, added `const` to
+  the parameters that didn't mutate.
+
+Two CI-green commits on `warning-cleanup`.
+
+### Wave 3 — real-bug categories (pending)
+~157 warnings, each potentially a latent bug:
+- `-Waddress-of-temporary` (63) — taking `&` of an rvalue.
+- `-Wtautological-constant-out-of-range-compare` (36) — e.g. `uint8 > -1`
+  always true.
+- `-Wmultichar` (19) — `'abc'` 3-char literal stored as int.
+- `-Wformat-security` (18) — `printf(user_input)` style.
+- `-Wdelete-abstract-non-virtual-dtor` (11) — UB on `delete base_ptr`
+  when base has no virtual destructor.
+- `-Wint-to-pointer-cast` (10).
+
+### Wave 4 — mechanical (pending)
+~120 warnings, easy mechanical fixes, low bug-find value:
+- `-Wparentheses-equality` (63) — `if ((a == b))`.
+- `-Wunused-value` (35).
+- `-Wextern-initializer` (14).
+- `-Wparentheses` (9).
+
+### Wave 5 — the three JA2-idiomatic big rocks (pending decision)
+The remaining ~3,900 warnings all come from three categories that
+JA2 uses pervasively:
+- `-Wnontrivial-memcall` (1,766) — `memset`/`memcpy` on a C++ class
+  with non-trivial members. Could corrupt vtables if any of those
+  classes ever grows virtuals. Fix = constructor-style init,
+  big refactor.
+- `-Winvalid-offsetof` (1,316) — `offsetof()` on non-POD. UB by C++
+  standard but works on every known compiler.
+- `-Wdeprecated-declarations` (812) — macOS marks `sprintf`/`vsprintf`
+  deprecated for security. Fix = use `snprintf` everywhere, or
+  silence with `-Wno-deprecated-declarations` on the JA2 targets.
+
+Decision pending — either bulk-silence via CMake flags on the JA2
+libs (one-line change, ~3,900 warnings gone, but the underlying
+idiom risks remain), or do a real audit. The memset/memcpy class
+risk is the only one of these that could realistically bite us at
+runtime; the other two are paper UB that compilers honor in practice.
+
+---
+
 ## Known UI bugs (post-Phase 6k)
 
 - **Laptop hover tooltips have transparent backgrounds.** Tooltip box

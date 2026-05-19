@@ -65,7 +65,7 @@ struct ModifiedMapFile
 		this->key.sMapY    = sMapY;
 		this->key.bMapZ    = bMapZ;
 		this->szMapName[0] = 0;
-		this->hFileHandle  = NULL;
+		this->hFileHandle = 0;
 	}
 
 	ModifiedMapFile(UINT32 uiType, STR pMapName, INT16 sMapX, INT16 sMapY, INT8 bMapZ)
@@ -76,26 +76,26 @@ struct ModifiedMapFile
 		this->key.bMapZ   = bMapZ;
 		strncpy(this->szMapName, pMapName, _countof(this->szMapName));
 		this->szMapName[_countof(this->szMapName) - 1] = 0;
-		this->hFileHandle = NULL;
+		this->hFileHandle = 0;
 	}
 
 	~ModifiedMapFile()
 	{
-		if (this->hFileHandle != NULL)
+		if (this->hFileHandle != 0)
 		{
 			FileClose(this->hFileHandle);
-			this->hFileHandle = NULL;
+			this->hFileHandle = 0;
 		}
 	}
 
 	BOOLEAN IsOpen() const
 	{
-		return (this->hFileHandle == NULL) ? FALSE : TRUE;
+		return (this->hFileHandle == 0) ? FALSE : TRUE;
 	}
 
 	BOOLEAN Open()
 	{
-		if ( hFileHandle == NULL && szMapName[0] != 0)
+		if ( hFileHandle == 0 && szMapName[0] != 0)
 		{
 			// we assume that we 'own' the file
 			hFileHandle = FileOpen( szMapName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE );
@@ -136,10 +136,10 @@ struct ModifiedMapFile
 
 	void Close()
 	{
-		if (this->hFileHandle != NULL)
+		if (this->hFileHandle != 0)
 		{
 			FileClose(this->hFileHandle);
-			this->hFileHandle = NULL;
+			this->hFileHandle = 0;
 		}
 	}
 };

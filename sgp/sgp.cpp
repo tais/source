@@ -1217,7 +1217,7 @@ void SafeSGPExit(void)
 }
 
 
-void ShutdownWithErrorBox(CHAR8 *pcMessage)
+void ShutdownWithErrorBox(const CHAR8 *pcMessage)
 {
 	strncpy(gzErrorMsg, pcMessage, 255);
 	gzErrorMsg[255]='\0';

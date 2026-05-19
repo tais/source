@@ -117,7 +117,7 @@ BOOLEAN LoadLockTable( void )
 {
 	UINT32	uiNumBytesRead = 0;
 	UINT32	uiBytesToRead;
-	CHAR8 *	pFileName = "BINARYDATA\\Locks.bin";
+	const CHAR8 *	pFileName = "BINARYDATA\\Locks.bin";
 	HWFILE	hFile;
 
 	// Load the Lock Table

@@ -55,7 +55,7 @@ enum MusicList
 	NUM_MUSIC
 };
 
-CHAR8* szMusicList[NUM_MUSIC] =
+const CHAR8 *szMusicList[NUM_MUSIC] =
 {
 	"MUSIC\\marimbad 2",
 	"MUSIC\\menumix1",
@@ -85,7 +85,7 @@ static void AddMusicToList(STR fileName, NewMusicList mode)
 
 	if (SoundFileExists(fileName, musicFile))
 	{
-		STR music = (STR)MemAlloc(buf * sizeof(CHAR8));
+		CHAR8 *music = (CHAR8 *)MemAlloc(buf * sizeof(CHAR8));
 		Assert(music);
 		memset(music, 0, sizeof(CHAR8) * buf);
 		strcpy(music, musicFile);

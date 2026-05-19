@@ -136,7 +136,7 @@
 		// public functions
 	public:
 		POPUP(void); // constructor
-		POPUP(CHAR8* name); // constructor
+		POPUP(const CHAR8 *name); // constructor
 		~POPUP(void);			// destructor
 		// setup
 		POPUP_OPTION * addOption(std::wstring * name, popupCallback * action);

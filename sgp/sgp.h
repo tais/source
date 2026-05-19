@@ -20,7 +20,7 @@ extern BOOLEAN		gfDontUseDDBlits;		// GLOBAL FOR USE OF DD BLITTING
 
 // function prototypes
 void SGPExit(void);
-void ShutdownWithErrorBox(CHAR8 *pcMessage);
+void ShutdownWithErrorBox(const CHAR8 *pcMessage);
 
 #ifdef __cplusplus
 }

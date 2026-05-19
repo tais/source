@@ -2980,12 +2980,12 @@ BOOLEAN GetArtilleryLaunchParams(UINT32 sStartingGridNo, UINT32 sTargetGridNo, U
 
 	INT32 uiMaxRange = GetModifiedGunRange(usLauncher) / CELL_X_SIZE;
 
-	dMaxForce = CalculateForceFromRange(NULL, (INT16)uiMaxRange, (FLOAT)(PI / 4), sTargetGridNo, ubTargetLevel);
-			
+	dMaxForce = CalculateForceFromRange(0, (INT16)uiMaxRange, (FLOAT)(PI / 4), sTargetGridNo, ubTargetLevel);
+
 	if ( dMagForce > dMaxForce )
 		dMagForce = dMaxForce;
 
-	dMinForce = CalculateForceFromRange(NULL, (INT16)(sMinRange / 10), (FLOAT)(PI / 4), sTargetGridNo, ubTargetLevel);
+	dMinForce = CalculateForceFromRange(0, (INT16)(sMinRange / 10), (FLOAT)(PI / 4), sTargetGridNo, ubTargetLevel);
 
 	if ( dMagForce < dMinForce )
 		dMagForce = dMinForce;
