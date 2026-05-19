@@ -427,7 +427,7 @@ BOOLEAN HandleJA2CDCheckTwo() { return TRUE; }
 BOOLEAN PerformTimeLimitedCheck() { return TRUE; }
 #endif // _WIN32
 
-BOOLEAN DoJA2FilesExistsOnDrive( CHAR8 *zCdLocation )
+BOOLEAN DoJA2FilesExistsOnDrive( const CHAR8 *zCdLocation )
 {
 	BOOLEAN fFailed = FALSE;
 	CHAR8		zCdFile[ SGPFILENAME_LEN ];
