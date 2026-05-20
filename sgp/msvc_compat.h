@@ -10,9 +10,40 @@
 #ifndef _SGP_MSVC_COMPAT_H
 #define _SGP_MSVC_COMPAT_H
 
+// On Windows, JA2 source uses Win32 types (BOOL, UINT, DWORD, HANDLE,
+// RGBQUAD, ...) all over without including <windows.h> -- the legacy
+// MSBuild build leaked them in via the precompiled header. The
+// CMake/clang build has no PCH, so pull <windows.h> in centrally here
+// (types.h includes this header, so it propagates everywhere).
+//
+// TRANSITIONAL: Phase 11 retires the Win32 type names from JA2 source
+// (BOOL -> BOOLEAN, DWORD -> UINT32, etc.); once that lands this
+// include and the non-_WIN32 shims below both go away.
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN   // skip winsock/RPC/crypto/etc.; keep GDI (RGBQUAD)
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX              // don't clobber std::min/std::max
+#  endif
+#  include <windows.h>
+#endif
+
+// MAX_PATH fallback. On Windows it comes from <windows.h> above
+// (defined to 260); on POSIX we point it at PATH_MAX. JA2 source uses
+// MAX_PATH everywhere, so make sure it's defined before the non-_WIN32
+// compat shims start.
+#ifndef MAX_PATH
+#  ifdef _WIN32
+#    define MAX_PATH 260
+#  else
+#    include <climits>
+#    define MAX_PATH PATH_MAX
+#  endif
+#endif
+
 #ifndef _WIN32
 
-#include <climits>    // PATH_MAX
 #include <strings.h>  // strcasecmp, strncasecmp
 #include <wchar.h>    // wcscasecmp on glibc; <wctype.h> on macOS
 #include <cstdint>
@@ -21,10 +52,6 @@
 #include <math.h>        // bare log/sqrt/sin/cos/pow/floor/ceil/etc.
                          // libstdc++'s <cmath> exposes them in std:: only;
                          // JA2 calls them unqualified everywhere.
-
-#ifndef MAX_PATH
-#define MAX_PATH PATH_MAX
-#endif
 
 // Win32 unsized typedefs that JA2 source uses without including
 // windows.h (relying on transitive includes that we're trimming).
@@ -376,36 +403,6 @@ inline DWORD GetPrivateProfileStringA(const char*, const char*,
 #define __max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifdef __cplusplus
-// Global `::min` / `::max` template overloads that handle mixed integer
-// types via std::common_type. JA2 source has thousands of bare
-// `min(int_literal, sized_int)` calls that won't compile against
-// std::min<T>(T const&, T const&) because deduction fails on
-// dissimilar argument types. These overloads pick up those cases via
-// ADL/unqualified lookup; for same-type calls in code that does
-// `using namespace std;`, std::min<T> is more specialized and wins
-// overload resolution, so it remains the preferred path.
-//
-// Function-style `#define min/max` macros are intentionally NOT defined
-// because they corrupt `min(...)` / `max(...)` inside
-// libstdc++'s own template code (sstream/istream/hashtable/specfun/...)
-// on Linux clang.
-template <typename A, typename B>
-constexpr auto min(A const& a, B const& b)
-    -> typename std::common_type<A, B>::type
-{
-    using T = typename std::common_type<A, B>::type;
-    return T(a) < T(b) ? T(a) : T(b);
-}
-template <typename A, typename B>
-constexpr auto max(A const& a, B const& b)
-    -> typename std::common_type<A, B>::type
-{
-    using T = typename std::common_type<A, B>::type;
-    return T(a) > T(b) ? T(a) : T(b);
-}
-#endif
-
 #define _stricmp   strcasecmp
 #define _strnicmp  strncasecmp
 #define _wcsicmp   wcscasecmp
@@ -567,6 +564,47 @@ inline int vswprintf(wchar_t (&buf)[N], const wchar_t* fmt, va_list args) {
 #endif
 
 #endif // !_WIN32
+
+// Global `::min` / `::max` template overloads that handle mixed integer
+// types via std::common_type. JA2 source has thousands of bare
+// `min(int_literal, sized_int)` calls that won't compile against
+// std::min<T>(T const&, T const&) because deduction fails on
+// dissimilar argument types. These overloads pick up those cases via
+// ADL/unqualified lookup; for same-type calls in code that does
+// `using namespace std;`, std::min<T> is more specialized and wins.
+//
+// Universal (outside the !_WIN32 block above): on POSIX there are no
+// Win32 min/max macros, and on Windows we define NOMINMAX so
+// <windows.h> doesn't provide them either. Function-style
+// `#define min/max` macros are intentionally NOT used -- they corrupt
+// `min(...)`/`max(...)` inside the STL's own template code.
+#ifdef __cplusplus
+#include <algorithm>     // std::min/std::max
+#include <type_traits>   // std::common_type
+// Defensive: if some header pulled in <windows.h> without NOMINMAX
+// before this point, its min/max function macros would mangle the
+// template definitions below ("expected ')'"). Clear them first.
+#ifdef min
+#  undef min
+#endif
+#ifdef max
+#  undef max
+#endif
+template <typename A, typename B>
+constexpr auto min(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) < T(b) ? T(a) : T(b);
+}
+template <typename A, typename B>
+constexpr auto max(A const& a, B const& b)
+    -> typename std::common_type<A, B>::type
+{
+    using T = typename std::common_type<A, B>::type;
+    return T(a) > T(b) ? T(a) : T(b);
+}
+#endif
 
 // Portable swprintf wrapper for sites that hold a buffer as a pointer
 // (and thus can't ride the macro that infers the array extent). The

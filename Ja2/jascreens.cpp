@@ -977,40 +977,13 @@ UINT32 DemoExitScreenShutdown(void)
 	return( TRUE );
 }
 
-#ifndef JA2EDITOR
+// The non-editor stubs for LoadSaveScreen* / EditScreen* live in the
+// Editor lib's `#else //non-editor version` branches
+// (Editor/LoadScreen.cpp, Editor/editscreen.cpp). They used to be
+// duplicated here under `#ifndef JA2EDITOR`, which the GNU/Apple
+// linkers tolerated via lazy archive selection but lld-link rejects
+// as a duplicate symbol. Keep the single copy in the Editor lib.
 
-UINT32 LoadSaveScreenInit()
-{
-	return TRUE;
-}
-
-UINT32 LoadSaveScreenHandle()
-{
-	return TRUE;
-}
-
-UINT32 LoadSaveScreenShutdown()
-{
-	return TRUE;
-}
-
-UINT32 EditScreenInit()
-{
-	return TRUE;
-}
-
-UINT32 EditScreenHandle()
-{
-	return TRUE;
-}
-
-UINT32 EditScreenShutdown()
-{
-	return TRUE;
-}
-
-
-#endif
 void PrintExceptionList()
 {
 	UINT8*		pDestBuf;

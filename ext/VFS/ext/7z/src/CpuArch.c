@@ -3,6 +3,15 @@
 
 #include "CpuArch.h"
 
+/* __cpuid is an MSVC intrinsic that 7z 9.22 (2011) called without
+ * including <intrin.h>; classic MSVC made it available implicitly
+ * but clang targeting Windows treats it as an undeclared function.
+ * Include it explicitly on Windows targets that aren't using the
+ * inline-asm CheckFlag path (i.e. AMD64). */
+#if defined(_WIN32) && defined(MY_CPU_X86_OR_AMD64) && (defined(_MSC_VER) || defined(__clang__))
+#include <intrin.h>
+#endif
+
 #ifdef MY_CPU_X86_OR_AMD64
 
 #if (defined(_MSC_VER) && !defined(MY_CPU_AMD64)) || defined(__GNUC__)

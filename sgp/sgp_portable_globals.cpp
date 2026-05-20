@@ -6,6 +6,16 @@
 
 #include "types.h"
 
+// ghWindow: the Win32 HWND. The legacy WinMain used to own it; the
+// SDL3 portable main() doesn't create a Win32 window directly, but
+// several Win32-gated paths still reference ghWindow (ScreenToClient
+// in mapscreen / tactical placement, OpenClipboard in Text Input,
+// DSEnable in Win Util). Define it here as null so those TUs link;
+// the SDL3 build doesn't drive them. (HWND only exists on Windows.)
+#ifdef _WIN32
+HWND ghWindow = nullptr;
+#endif
+
 // (sgp.cpp's globals -- gfProgramIsRunning, gfApplicationActive,
 // gfGameInitialized, gzCommandLine, gzErrorMsg, iWindowedMode,
 // guiMouseWheelMsg, g_bUseXML_Structures, gfDontUseDDBlits,
@@ -25,7 +35,10 @@ BOOLEAN gfNextRefreshFullScreen = FALSE;
 // libsmacker took over for binkw32 and the Intro module stopped being
 // Win32-only.
 
-// ---- WinFont.cpp (Phase 9) -------------------------------------------------
+// ---- WinFont (retired) -----------------------------------------------------
+// WinFont.cpp (the GDI + DirectDraw font rasterizer) is no longer
+// compiled on any platform, so define its exported globals here. The
+// iUseWinFonts path stays off; Phase 9 brings cross-platform text.
 INT32   TOOLTIP_IFONT         = -1;
 INT32   TOOLTIP_IFONT_BOLD    = -1;
 #ifndef MAX_WINFONTMAP

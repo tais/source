@@ -99,11 +99,11 @@ extern INT16 APBPConstants[TOTAL_APBP_VALUES];
 
 void		InitGameSettings();
 
-BOOLEAN GetCdromLocationFromIniFile( STR pRootOfCdromDrive );
+BOOLEAN GetCdromLocationFromIniFile( CHAR8 *pRootOfCdromDrive );
 
-extern BOOLEAN DoJA2FilesExistsOnDrive( CHAR8 *zCdLocation );
+extern BOOLEAN DoJA2FilesExistsOnDrive( const CHAR8 *zCdLocation );
 
-BOOLEAN GetCDromDriveLetter( STR8	pString );
+BOOLEAN GetCDromDriveLetter( CHAR8 *pString );
 BOOLEAN	IsDriveLetterACDromDrive( STR pDriveLetter );
 void		CDromEjectionErrorMessageBoxCallBack( UINT8 bExitValue );
 
@@ -4378,7 +4378,7 @@ BOOLEAN GetCDLocation( )
 
 
 
-BOOLEAN GetCDromDriveLetter( STR8	pString )
+BOOLEAN GetCDromDriveLetter( CHAR8 *pString )
 {
 	UINT32	uiSize=0;
 	UINT8		ubCnt=0;
@@ -4516,7 +4516,14 @@ BOOLEAN CheckIfGameCdromIsInCDromDrive()
 			{
 				sprintf( sString, "%S	%S", pMessageStrings[ MSG_INTEGRITY_WARNING ], pMessageStrings[ MSG_CDROM_SAVE_GAME ] );
 
-				SaveGame( SAVE__ERROR_NUM, pMessageStrings[ MSG_CDROM_SAVE ] );
+				// SaveGame() may write to its description buffer on the
+				// quicksave path (it doesn't for SAVE__ERROR_NUM here,
+				// but the signature is `CHAR16 *`). Copy the read-only
+				// pMessageStrings entry into a local buffer.
+				CHAR16 zSaveDesc[ SIZE_OF_SAVE_GAME_DESC ];
+				wcsncpy( zSaveDesc, pMessageStrings[ MSG_CDROM_SAVE ], SIZE_OF_SAVE_GAME_DESC - 1 );
+				zSaveDesc[ SIZE_OF_SAVE_GAME_DESC - 1 ] = L'\0';
+				SaveGame( SAVE__ERROR_NUM, zSaveDesc );
 			}
 			else
 			{
@@ -4540,7 +4547,7 @@ BOOLEAN CheckIfGameCdromIsInCDromDrive()
 }
 
 
-BOOLEAN GetCdromLocationFromIniFile( STR pRootOfCdromDrive )
+BOOLEAN GetCdromLocationFromIniFile( CHAR8 *pRootOfCdromDrive )
 {
 	UINT32	uiRetVal=0;
 
@@ -4574,7 +4581,10 @@ void CDromEjectionErrorMessageBoxCallBack( UINT8 bExitValue )
 		//if we are in a game, save the game
 		if( gTacticalStatus.fHasAGameBeenStarted )
 		{
-			SaveGame( SAVE__ERROR_NUM, pMessageStrings[ MSG_CDROM_SAVE ] );
+			CHAR16 zSaveDesc[ SIZE_OF_SAVE_GAME_DESC ];
+			wcsncpy( zSaveDesc, pMessageStrings[ MSG_CDROM_SAVE ], SIZE_OF_SAVE_GAME_DESC - 1 );
+			zSaveDesc[ SIZE_OF_SAVE_GAME_DESC - 1 ] = L'\0';
+			SaveGame( SAVE__ERROR_NUM, zSaveDesc );
 		}
 
  		//quit the game
