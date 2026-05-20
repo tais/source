@@ -10,10 +10,29 @@
 #ifndef _SGP_MSVC_COMPAT_H
 #define _SGP_MSVC_COMPAT_H
 
-// MAX_PATH fallback. On Windows it normally comes from <windows.h>
+// On Windows, JA2 source uses Win32 types (BOOL, UINT, DWORD, HANDLE,
+// RGBQUAD, ...) all over without including <windows.h> -- the legacy
+// MSBuild build leaked them in via the precompiled header. The
+// CMake/clang build has no PCH, so pull <windows.h> in centrally here
+// (types.h includes this header, so it propagates everywhere).
+//
+// TRANSITIONAL: Phase 11 retires the Win32 type names from JA2 source
+// (BOOL -> BOOLEAN, DWORD -> UINT32, etc.); once that lands this
+// include and the non-_WIN32 shims below both go away.
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN   // skip winsock/RPC/crypto/etc.; keep GDI (RGBQUAD)
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX              // don't clobber std::min/std::max
+#  endif
+#  include <windows.h>
+#endif
+
+// MAX_PATH fallback. On Windows it comes from <windows.h> above
 // (defined to 260); on POSIX we point it at PATH_MAX. JA2 source uses
-// MAX_PATH everywhere without including <windows.h>, so define it
-// universally before the non-_WIN32 compat shims start.
+// MAX_PATH everywhere, so make sure it's defined before the non-_WIN32
+// compat shims start.
 #ifndef MAX_PATH
 #  ifdef _WIN32
 #    define MAX_PATH 260
