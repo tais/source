@@ -1,22 +1,25 @@
-// Multiplayer stubs for non-Windows builds.
+// Multiplayer stubs for builds without the real RakNet path.
 //
-// JA2's networking is RakNet 3.401, shipped only as a prebuilt Win32
-// .lib (Multiplayer/raknet/RakNetLibStatic.lib). The matching RakNet
-// 3.x source is not publicly available; Facebook open-sourced only
-// 4.x, which has incompatible API.
+// JA2's networking is RakNet 3.401, shipped only as a prebuilt 32-bit
+// Win32 .lib (Multiplayer/raknet/RakNetLibStatic.lib). The matching
+// RakNet 3.x source is not publicly available; Facebook open-sourced
+// only 4.x, which has an incompatible API.
 //
-// This file provides do-nothing definitions for every external
-// symbol exported by the Multiplayer wrapper (client.cpp, server.cpp,
-// transfer_rules.cpp), so the main JA2 executable links on
-// non-Windows. is_networked / is_connected etc. stay false, the
+// This file provides do-nothing definitions for every external symbol
+// exported by the Multiplayer wrapper (client.cpp, server.cpp,
+// transfer_rules.cpp), so the main JA2 executable links wherever the
+// real RakNet lib can't: non-Windows, and 64-bit Windows (the .lib is
+// 32-bit only). is_networked / is_connected etc. stay false, the
 // send_* functions are no-ops; the game runs in single-player.
 //
-// Real multiplayer on non-Windows requires either porting JA2's
-// wrapper to RakNet 4 (substantial: ~327 RakNet API references,
-// several removed APIs like RakNetworkFactory / AutoRPC / RPC) or
-// retargeting to a different netlib (SDL3_net, enet, asio, ...).
-
-#ifndef _WIN32
+// Which file gets compiled is decided in Multiplayer/CMakeLists.txt
+// (real client/server only on 32-bit Windows), so this TU's contents
+// are unconditional -- no internal _WIN32 gate.
+//
+// Real multiplayer elsewhere requires either porting JA2's wrapper to
+// RakNet 4 (substantial: ~327 RakNet API references, several removed
+// APIs like RakNetworkFactory / AutoRPC / RPC) or retargeting to a
+// different netlib (SDL3_net, enet, asio, ...).
 
 #include "types.h"
 #include "connect.h"
@@ -175,5 +178,3 @@ bool    CTransferRules::initFromTxtFile(vfs::tReadableFile*)      { return true;
 void    CTransferRules::setDefaultAction(EAction act)             { m_eDefaultAction = act; }
 CTransferRules::EAction CTransferRules::getDefaultAction()        { return m_eDefaultAction; }
 CTransferRules::EAction CTransferRules::applyRule(vfs::String const&) { return m_eDefaultAction; }
-
-#endif // !_WIN32
