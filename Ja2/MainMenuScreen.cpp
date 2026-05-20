@@ -669,7 +669,12 @@ BOOLEAN CreateDestroyMainMenuButtons( BOOLEAN fCreate )
 		iMenuImages[ NEW_GAME ]	= LoadButtonImage( filename, 0,0, 1, 2 ,-1 );
 #endif
 			
-		iMenuImages[ NEW_MP_GAME ] = LoadButtonImage( filenameMP, 0, 0, 1, 2, -1 );
+		// Grayed = -1: the MP title image has no pre-rendered grayed
+		// frame, so let the disabled path fall through to the shaded
+		// style below (multiplayer is permanently disabled in the SDL3
+		// port). With Grayed=0 the button blitted its normal frame and
+		// looked enabled even while non-interactive.
+		iMenuImages[ NEW_MP_GAME ] = LoadButtonImage( filenameMP, -1, 0, 1, 2, -1 );
 
 		sSlot = 0;
 		iMenuImages[ LOAD_GAME ] = UseLoadedButtonImage( iMenuImages[ NEW_GAME ] ,6,3,4,5,-1 );
@@ -704,8 +709,12 @@ BOOLEAN CreateDestroyMainMenuButtons( BOOLEAN fCreate )
 				return( FALSE );
 			}
 
-			ButtonList[ iMenuButtons[ cnt ] ]->UserData[0] = cnt;			
+			ButtonList[ iMenuButtons[ cnt ] ]->UserData[0] = cnt;
 		}
+
+		// Multiplayer is permanently disabled in the SDL3 port; shade
+		// the button so it reads as greyed-out like a disabled LOAD_GAME.
+		SpecifyDisabledButtonStyle( iMenuButtons[ NEW_MP_GAME ], DISABLED_STYLE_SHADED );
 
 		fButtonsCreated = TRUE;
 	}
