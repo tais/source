@@ -923,8 +923,11 @@ UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 }
 
 // Convert from RGB to 16 bit value
-UINT16 Get16BPPColor( UINT32 RGBValue )
+PIXEL Get16BPPColor( UINT32 RGBValue )
 {
+#if SGP_PIXEL_DEPTH == 32
+	return Get32BPPColor( RGBValue ); // true 8-bit-per-channel ARGB8888
+#else
 	UINT16 r16, g16, b16, usColor = 0;
 	UINT8	r,g,b;
 
@@ -963,6 +966,7 @@ UINT16 Get16BPPColor( UINT32 RGBValue )
 		usColor	|=	gusAlphaMask;
 
 	return(usColor);
+#endif
 }
 
 
@@ -1169,7 +1173,14 @@ void ConvertRGBDistribution565ToAny( UINT16 * p16BPPData, UINT32 uiNumberOfPixel
 		uiBlue = (*pPixel & 0x001F);
 		uiTemp = FROMRGB(uiRed,uiGreen,uiBlue);
 		// then convert the 32-bit RGB value to whatever 16 bit format is used
+#if SGP_PIXEL_DEPTH == 32
+		// 16bpp image buffer stays standard RGB565 (expanded to ARGB later by
+		// Copy16BPPImageTo16BPPBuffer). Get16BPPColor would yield ARGB here.
+		(void)uiTemp;
+		*pPixel = (UINT16)((uiRed << 11) | (uiGreen << 5) | uiBlue);
+#else
 		*pPixel = Get16BPPColor( uiTemp );
+#endif
 		pPixel++;
 	}
 }

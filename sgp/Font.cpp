@@ -57,9 +57,9 @@ SGPRect		FontDestRegion={0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
 
 
 BOOLEAN		FontDestWrap=FALSE;
-UINT16		FontForeground16=0;
-UINT16		FontBackground16=0;
-UINT16		FontShadow16=DEFAULT_SHADOW;
+PIXEL		FontForeground16=0;
+PIXEL		FontBackground16=0;
+PIXEL		FontShadow16=DEFAULT_SHADOW;
 UINT8			FontForeground8=0;
 UINT8			FontBackground8=0;
 
@@ -73,9 +73,9 @@ UINT32		SaveFontDestBPP=16;
 SGPRect		SaveFontDestRegion={0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
 
 BOOLEAN		SaveFontDestWrap=FALSE;
-UINT16		SaveFontForeground16=0;
-UINT16		SaveFontShadow16=0;
-UINT16		SaveFontBackground16=0;
+PIXEL		SaveFontForeground16=0;
+PIXEL		SaveFontShadow16=0;
+PIXEL		SaveFontBackground16=0;
 UINT8			SaveFontForeground8=0;
 UINT8			SaveFontBackground8=0;
 
@@ -151,7 +151,15 @@ UINT32 uiRed, uiGreen, uiBlue;
 	uiGreen=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peGreen;
 	uiBlue=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubShadow].peBlue;
 
-	FontShadow16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+	// 0 == "no shadow" (see the usShadow!=0 test in the blitter). Black used to
+	// collapse to 0 in RGB565; with true-colour Get16BPPColor it is 0xFF000000,
+	// which would draw an unwanted black drop-shadow halo around every glyph.
+	// Keep "black shadow == none"; the bump below still makes a *requested*
+	// (ubShadow!=0) black shadow drawable as 1.
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontShadow16 = 0;
+	else
+		FontShadow16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
 
 	if ( ubShadow != 0 )
 	{
@@ -193,7 +201,13 @@ UINT32 uiRed, uiGreen, uiBlue;
 	uiGreen=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peGreen;
 	uiBlue=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peBlue;
 
-	FontBackground16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+	// 0 == transparent background (see header). Black used to collapse to 0
+	// in RGB565; with true-colour Get16BPPColor it is 0xFF000000, so keep the
+	// "black background == transparent" convention explicitly.
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontBackground16 = 0;
+	else
+		FontBackground16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
     if ( iUseWinFonts) {
 	    if (GET_WINFONT() != -1)
 		    {
@@ -224,7 +238,11 @@ void SetRGBFontBackground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 {
 	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
 		return;
-	FontBackground16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
+	// 0 == transparent background; preserve "black background == transparent".
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontBackground16 = 0;
+	else
+		FontBackground16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
 	if (iUseWinFonts) {
 		if (GET_WINFONT() != -1)
 		{
@@ -1306,7 +1324,7 @@ INT32		destx, desty;
 CHAR16	*curletter, transletter;
 va_list argptr;
 CHAR16	string[512];
-UINT16	usOldForeColor;
+PIXEL	usOldForeColor;
 
 	Assert(pFontString!=NULL);
 
@@ -1366,7 +1384,7 @@ INT32		destx, desty;
 CHAR16	*curletter, transletter;
 va_list argptr;
 CHAR16	string[512];
-UINT16	usOldForeColor;
+PIXEL	usOldForeColor;
 UINT32			uiDestPitchBYTES;
 UINT8				*pDestBuf;
 
