@@ -1,6 +1,8 @@
 #include "types.h"
 #include "Soldier Profile.h"
 #include "FileMan.h"
+#include "SaveSerializer.h"
+#include <cstddef>      // offsetof
 #include <string.h>
 #include <stdio.h>
 #include "DEBUG.H"
@@ -584,36 +586,27 @@ extern int gLastLBEUniqueID;
 
 BOOLEAN LBENODE::Load( HWFILE hFile )
 {
-	UINT32	uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
-	{
-		if ( !FileRead( hFile, this, SIZEOF_LBENODE_POD, &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-		if (uniqueID >= gLastLBEUniqueID) {
-			//can happen because of the order things are saved and loaded,
-			//when combined with copy assignment which makes a new LBENODE
-			gLastLBEUniqueID = uniqueID + 1;
-		}
-		int size = 0;
-		if ( !FileRead( hFile, &size, sizeof(int), &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-
-		inv.resize(size);
-		for (std::vector<OBJECTTYPE>::iterator iter = inv.begin(); iter != inv.end(); ++iter) {
-			if (! iter->Load(hFile)) {
-				return FALSE;
-			}
-		}
+	// Portable save-format v2 (savegame path; maps use Load(INT8**) below).
+	SaveReader r(hFile);
+	lbeClass       = r.u32();
+	lbeIndex       = r.u16();
+	ubID           = r.u16();
+	ZipperFlag     = r.boolean();
+	uniqueID       = r.i32();
+	uiNodeChecksum = r.u32();
+	if (uniqueID >= gLastLBEUniqueID) {
+		//can happen because of the order things are saved and loaded,
+		//when combined with copy assignment which makes a new LBENODE
+		gLastLBEUniqueID = uniqueID + 1;
 	}
-	else
-	{
-		//we shouldn't be loading from anything before the first change
-		AssertGE(guiCurrentSaveGameVersion, NIV_SAVEGAME_DATATYPE_CHANGE);
+	int size = r.i32();
+	if (!r.good() || size < 0 || size >= 512) return FALSE;
+
+	inv.resize(size);
+	for (std::vector<OBJECTTYPE>::iterator iter = inv.begin(); iter != inv.end(); ++iter) {
+		if (! iter->Load(hFile)) {
+			return FALSE;
+		}
 	}
 	return TRUE;
 }
@@ -642,16 +635,32 @@ BOOLEAN	LBENODE::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapV
 
 BOOLEAN LBENODE::Save( HWFILE hFile, bool fSavingMap )
 {
-	UINT32 uiNumBytesWritten;
 	int size = inv.size();
 
-	if ( !FileWrite( hFile, this, SIZEOF_LBENODE_POD, &uiNumBytesWritten ) )
+	if (fSavingMap)
 	{
-		return(FALSE);
+		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
+		UINT32 uiNumBytesWritten;
+		if ( !FileWrite( hFile, this, SIZEOF_LBENODE_POD, &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
+		if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
 	}
-	if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+	else
 	{
-		return(FALSE);
+		SaveWriter w(hFile);
+		w.u32(lbeClass);
+		w.u16(lbeIndex);
+		w.u16(ubID);
+		w.boolean(ZipperFlag);
+		w.i32(uniqueID);
+		w.u32(uiNodeChecksum);
+		w.i32(size);
+		if (!w.good()) return FALSE;
 	}
 	for (std::vector<OBJECTTYPE>::iterator iter = inv.begin(); iter != inv.end(); ++iter) {
 		//we are not saving to a map, at least not yet
@@ -881,13 +890,43 @@ BOOLEAN DEALER_SPECIAL_ITEM::Load(HWFILE hFile)
 	return TRUE;
 }
 
+static void SaveVec3( SaveWriter& w, const vector_3& v ) { w.f32(v.x); w.f32(v.y); w.f32(v.z); }
+static void LoadVec3( SaveReader& r, vector_3& v ) { v.x = r.f32(); v.y = r.f32(); v.z = r.f32(); }
+
 BOOLEAN REAL_OBJECT::Save(HWFILE hFile)
 {
-	UINT32 uiNumBytesWritten;
-	if ( !FileWrite( hFile, this, SIZEOF_REAL_OBJECT_POD, &uiNumBytesWritten ) )
-	{
-		return FALSE;
-	}
+	SaveWriter w(hFile);
+	w.boolean(fAllocated); w.boolean(fAlive); w.boolean(fApplyFriction);
+	w.boolean(fColliding); w.boolean(fZOnRest); w.boolean(fVisible);
+	w.boolean(fInWater); w.boolean(fTestObject); w.boolean(fTestEndedWithCollision);
+	w.boolean(fTestPositionNotSet);
+	w.f32(TestZTarget); w.f32(OneOverMass); w.f32(AppliedMu);
+	SaveVec3(w, Position); SaveVec3(w, TestTargetPosition); SaveVec3(w, OldPosition);
+	SaveVec3(w, Velocity); SaveVec3(w, OldVelocity); SaveVec3(w, InitialForce);
+	SaveVec3(w, Force); SaveVec3(w, CollisionNormal); SaveVec3(w, CollisionVelocity);
+	w.f32(CollisionElasticity);
+	w.i32(sGridNo); w.i32(iID);
+	// pNode/pShadow are runtime LEVELNODE pointers - never persisted; rebuilt on load.
+	w.i16(sConsecutiveCollisions); w.i16(sConsecutiveZeroVelocityCollisions); w.i32(iOldCollisionCode);
+	w.f32(dLifeLength); w.f32(dLifeSpan);
+	w.boolean(fFirstTimeMoved);
+	w.i32(sFirstGridNo);
+	w.u16(ubOwner);
+	w.u8(ubActionCode);
+	w.u32(uiActionData);
+	w.boolean(fDropItem);
+	w.u32(uiNumTilesMoved);
+	w.boolean(fCatchGood); w.boolean(fAttemptedCatch); w.boolean(fCatchAnimOn); w.boolean(fCatchCheckDone);
+	w.boolean(fEndedWithCollisionPositionSet);
+	SaveVec3(w, EndedWithCollisionPosition);
+	w.boolean(fHaveHitGround); w.boolean(fPotentialForDebug);
+	w.i32(sLevelNodeGridNo); w.i32(iSoundID);
+	w.u16(ubLastTargetTakenDamage);
+	w.u8(mpTeam);
+	w.i32(mpRealObjectID);
+	w.boolean(mpIsFromRemoteClient); w.boolean(mpHaveClientResult); w.boolean(mpWasDud);
+	if (!w.good()) return FALSE;
+
 	if ( !this->Obj.Save(hFile, FALSE) )
 	{
 		return FALSE;
@@ -897,41 +936,58 @@ BOOLEAN REAL_OBJECT::Save(HWFILE hFile)
 
 BOOLEAN REAL_OBJECT::Load(HWFILE hFile)
 {
-	UINT32 uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	SaveReader r(hFile);
+	fAllocated = r.boolean(); fAlive = r.boolean(); fApplyFriction = r.boolean();
+	fColliding = r.boolean(); fZOnRest = r.boolean(); fVisible = r.boolean();
+	fInWater = r.boolean(); fTestObject = r.boolean(); fTestEndedWithCollision = r.boolean();
+	fTestPositionNotSet = r.boolean();
+	TestZTarget = r.f32(); OneOverMass = r.f32(); AppliedMu = r.f32();
+	LoadVec3(r, Position); LoadVec3(r, TestTargetPosition); LoadVec3(r, OldPosition);
+	LoadVec3(r, Velocity); LoadVec3(r, OldVelocity); LoadVec3(r, InitialForce);
+	LoadVec3(r, Force); LoadVec3(r, CollisionNormal); LoadVec3(r, CollisionVelocity);
+	CollisionElasticity = r.f32();
+	sGridNo = r.i32(); iID = r.i32();
+	pNode = NULL; pShadow = NULL; // runtime pointers - rebuilt by the physics update
+	sConsecutiveCollisions = r.i16(); sConsecutiveZeroVelocityCollisions = r.i16(); iOldCollisionCode = r.i32();
+	dLifeLength = r.f32(); dLifeSpan = r.f32();
+	fFirstTimeMoved = r.boolean();
+	sFirstGridNo = r.i32();
+	ubOwner = r.u16();
+	ubActionCode = r.u8();
+	uiActionData = r.u32();
+	fDropItem = r.boolean();
+	uiNumTilesMoved = r.u32();
+	fCatchGood = r.boolean(); fAttemptedCatch = r.boolean(); fCatchAnimOn = r.boolean(); fCatchCheckDone = r.boolean();
+	fEndedWithCollisionPositionSet = r.boolean();
+	LoadVec3(r, EndedWithCollisionPosition);
+	fHaveHitGround = r.boolean(); fPotentialForDebug = r.boolean();
+	sLevelNodeGridNo = r.i32(); iSoundID = r.i32();
+	ubLastTargetTakenDamage = r.u16();
+	mpTeam = r.u8();
+	mpRealObjectID = r.i32();
+	mpIsFromRemoteClient = r.boolean(); mpHaveClientResult = r.boolean(); mpWasDud = r.boolean();
+	if (!r.good()) return FALSE;
+
+	if ( !this->Obj.Load(hFile) )
 	{
-		if ( !FileRead( hFile, this, SIZEOF_REAL_OBJECT_POD, &uiNumBytesRead ) )
-		{
-			return FALSE;
-		}
-		if ( !this->Obj.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OLD_REAL_OBJECT_101 oldObject;
-			if ( !FileRead( hFile, &oldObject, sizeof( OLD_REAL_OBJECT_101 ), &uiNumBytesRead ) )
-			{
-				return FALSE;
-			}
-			*this = oldObject;
-		}
+		return FALSE;
 	}
 	return TRUE;
 }
 
 BOOLEAN INVENTORY_IN_SLOT::Save(HWFILE hFile)
 {
-	UINT32 uiNumBytesWritten;
-	if ( !FileWrite( hFile, this, SIZEOF_INVENTORY_IN_SLOT_POD, &uiNumBytesWritten ) )
-	{
-		return FALSE;
-	}
+	SaveWriter w(hFile);
+	w.boolean(fActive);
+	w.i16(sItemIndex);
+	w.u32(uiFlags);
+	w.u8 (ubLocationOfObject);
+	w.i16(bSlotIdInOtherLocation);
+	w.u8 (ubIdOfMercWhoOwnsTheItem);
+	w.u32(uiItemPrice);
+	w.u32(uiRepairDoneTime);
+	if (!w.good()) return FALSE;
+
 	if ( !this->ItemObject.Save(hFile, FALSE) )
 	{
 		return FALSE;
@@ -941,30 +997,20 @@ BOOLEAN INVENTORY_IN_SLOT::Save(HWFILE hFile)
 
 BOOLEAN INVENTORY_IN_SLOT::Load(HWFILE hFile)
 {
-	UINT32 uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	SaveReader r(hFile);
+	fActive                = r.boolean();
+	sItemIndex             = r.i16();
+	uiFlags                = r.u32();
+	ubLocationOfObject     = r.u8();
+	bSlotIdInOtherLocation = r.i16();
+	ubIdOfMercWhoOwnsTheItem = r.u8();
+	uiItemPrice            = r.u32();
+	uiRepairDoneTime       = r.u32();
+	if (!r.good()) return FALSE;
+
+	if ( !this->ItemObject.Load(hFile) )
 	{
-		if ( !FileRead( hFile, this, SIZEOF_INVENTORY_IN_SLOT_POD, &uiNumBytesRead ) )
-		{
-			return FALSE;
-		}
-		if ( !this->ItemObject.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OLD_INVENTORY_IN_SLOT_101 oldItem;
-			if ( !FileRead( hFile, &oldItem, sizeof( OLD_INVENTORY_IN_SLOT_101 ), &uiNumBytesRead ) )
-			{
-				return FALSE;
-			}
-			*this = oldItem;
-		}
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -2820,11 +2866,27 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 
 BOOLEAN WORLDITEM::Save(HWFILE hFile, bool fSavingMap)
 {
-	//save the POD
-	UINT32 uiNumBytesWritten;
-	if ( !FileWrite( hFile, this, SIZEOF_WORLDITEM_POD, &uiNumBytesWritten ) )
+	if (fSavingMap)
 	{
-		return(FALSE);
+		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
+		UINT32 uiNumBytesWritten;
+		if ( !FileWrite( hFile, this, SIZEOF_WORLDITEM_POD, &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
+	}
+	else
+	{
+		SaveWriter w(hFile);
+		w.boolean(fExists);
+		w.i32(sGridNo);
+		w.u8 (ubLevel);
+		w.u16(usFlags);
+		w.i8 (bRenderZHeightAboveLevel);
+		w.i8 (bVisible);
+		w.u8 (ubNonExistChance);
+		w.u16(soldierID);
+		if (!w.good()) return FALSE;
 	}
 
 	//save the OO OBJECTTYPE
@@ -2869,40 +2931,22 @@ BOOLEAN WORLDITEM::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMap
 
 BOOLEAN WORLDITEM::Load(HWFILE hFile)
 {
-	UINT32	uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	// Portable save-format v2 (savegame path; maps use the Load(...mapVersion) overloads).
+	SaveReader r(hFile);
+	fExists                  = r.boolean();
+	sGridNo                  = r.i32();
+	ubLevel                  = r.u8();
+	usFlags                  = r.u16();
+	bRenderZHeightAboveLevel = r.i8();
+	bVisible                 = r.i8();
+	ubNonExistChance         = r.u8();
+	soldierID                = r.u16();
+	if (!r.good()) return FALSE;
+
+	//now load the OO OBJECTTYPE
+	if ( !this->object.Load(hFile) )
 	{
-		//load the POD
-		if ( !FileRead( hFile, this, SIZEOF_WORLDITEM_POD, &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-
-		//now load the OO OBJECTTYPE
-		if ( !this->object.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	//if we need to load an older save
-	else {
-		//load the old data into a suitable structure, it's just POD
-		OLD_WORLDITEM_101	oldWorldItem;
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			if ( !FileRead( hFile, &oldWorldItem, sizeof(OLD_WORLDITEM_101), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-		}
-
-		//now we have the data that needs to be converted (keep on converting up, so use "if")
-		//the first conversion is simple enough that it can be done here
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			*this = oldWorldItem;
-		}
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -3023,38 +3067,56 @@ BOOLEAN StackedObjectData::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 u
 }
 
 
+// --- Portable (save-format v2) serialization of the ObjectData POD body. ---
+// The leading anonymous union (gun/money/bomb/key/owner/lbe) holds only fixed-
+// width, naturally-aligned scalars whose layout is byte-identical on all our
+// little-endian targets (Win32/Win64/macOS/Linux), so it is written as a
+// canonical fixed-size byte block; the trailing scalars are written explicitly.
+static void SaveObjectDataBody( SaveWriter& w, ObjectData& d )
+{
+	w.bytes(&d.objectStatus, (UINT32)offsetof(ObjectData, bTrap)); // the union
+	w.i8 (d.bTrap);
+	w.u8 (d.fUsed);
+	w.u8 (d.ubImprintID);
+	w.f32(d.bTemperature);
+	w.u8 (d.ubDirection);
+	w.u32(d.ubWireNetworkFlag);
+	w.i8 (d.bDefuseFrequency);
+	w.i16(d.sRepairThreshold);
+	w.f32(d.bFiller);
+	w.u64(d.sObjectFlag);
+}
+static void LoadObjectDataBody( SaveReader& r, ObjectData& d )
+{
+	r.bytes(&d.objectStatus, (UINT32)offsetof(ObjectData, bTrap)); // the union
+	d.bTrap            = r.i8();
+	d.fUsed            = r.u8();
+	d.ubImprintID      = r.u8();
+	d.bTemperature     = r.f32();
+	d.ubDirection      = r.u8();
+	d.ubWireNetworkFlag= r.u32();
+	d.bDefuseFrequency = r.i8();
+	d.sRepairThreshold = r.i16();
+	d.bFiller          = r.f32();
+	d.sObjectFlag      = r.u64();
+}
+
 BOOLEAN StackedObjectData::Load( HWFILE hFile )
 {
-	UINT32	uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
-	{
-		if ( !FileRead( hFile, &(this->data), sizeof(ObjectData), &uiNumBytesRead ) )
-		{
-			return(FALSE);
+	SaveReader r(hFile);
+	LoadObjectDataBody(r, this->data);
+	int size = r.i32();
+	if (!r.good() || size < 0 || size > 512) return FALSE;
+	attachments.resize(size);
+	for (attachmentList::iterator iter = attachments.begin(); iter != attachments.end(); ++iter) {
+		if (! iter->Load(hFile) ) {
+			return FALSE;
 		}
-		int size;
-		if ( !FileRead( hFile, &size, sizeof(int), &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-		attachments.resize(size);
-		for (attachmentList::iterator iter = attachments.begin(); iter != attachments.end(); ++iter) {
-			if (! iter->Load(hFile) ) {
-				return FALSE;
-			}
-		}
-	}
-	else {
-		//we shouldn't be loading this
-		Assert(false);
 	}
 	return TRUE;
 }
 BOOLEAN StackedObjectData::Save( HWFILE hFile, bool fSavingMap )
 {
-	//if we are saving this to a map file it will be loaded with FileRead
-	UINT32 uiNumBytesWritten;
 	int size = 0;
 	for (attachmentList::iterator iter = attachments.begin(); iter != attachments.end(); ++iter) {
 		//WarmSteel - In fact, attachments CAN be null now with NAS.
@@ -3067,14 +3129,27 @@ BOOLEAN StackedObjectData::Save( HWFILE hFile, bool fSavingMap )
 		}
 	}
 
-	if ( !FileWrite( hFile, &(this->data), sizeof(ObjectData), &uiNumBytesWritten ) )
+	if (fSavingMap)
 	{
-		return(FALSE);
+		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
+		UINT32 uiNumBytesWritten;
+		if ( !FileWrite( hFile, &(this->data), sizeof(ObjectData), &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
+		if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
 	}
-	if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+	else
 	{
-		return(FALSE);
+		SaveWriter w(hFile);
+		SaveObjectDataBody(w, this->data);
+		w.i32(size);
+		if (!w.good()) return FALSE;
 	}
+
 	for (attachmentList::iterator iter = attachments.begin(); iter != attachments.end(); ++iter) {
 		//WarmSteel - Can be null with NAS, sadly.
 		if (iter->exists() == true || UsingNewAttachmentSystem()==true) {
@@ -3089,76 +3164,36 @@ BOOLEAN StackedObjectData::Save( HWFILE hFile, bool fSavingMap )
 BOOLEAN OBJECTTYPE::Load( HWFILE hFile )
 {
 
-	UINT32	uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
-	{
-		if ( !FileRead( hFile, this, SIZEOF_OBJECTTYPE_POD, &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-		
-		int size = 0;
-		if ( !FileRead( hFile, &size, sizeof(int), &uiNumBytesRead ) )
-		{
-			return(FALSE);
-		}
-		
-		// WANNE: This is a safety check.
-		// The size can get any huge value, if we are using wrong items.xml on the savegame
-		// In that case, the "objectStack.resize(size) consumes ALL the memory on the system and then the game crashes because of not enough free memory!!!!
-		// When returning FALSE well tell there is something wrong and we can't load the savegame
-		if (size < 0 || size >= 512)
-		{
-			return(FALSE);
-		}
+	// Portable save-format v2. Old (pre-port) saves are rejected at load time
+	// by the save-version gate, so only the new format is read here. The map
+	// loader is the separate Load(INT8**, mapVersion) overload below.
+	SaveReader r(hFile);
+	usItem            = r.u16();
+	ubNumberOfObjects = r.u8();
+	ubMission         = r.u8();
+	fFlags            = r.u8();
+	int size = r.i32();
 
-		// WANNE.MEMORY: This call takes all the pc memory if we pass an invalid huge size as a parameter. See previous safety check.
-		objectStack.resize(size);
-		
-		int x = 0;
-		for (StackedObjects::iterator iter = objectStack.begin(); iter != objectStack.end(); ++iter, ++x) {
-			if (! iter->Load(hFile)) {
+	// Safety check: a corrupt/mismatched save (e.g. wrong items.xml) could yield
+	// a huge size that exhausts memory in resize(). Reject implausible values.
+	if (!r.good() || size < 0 || size >= 512)
+	{
+		return(FALSE);
+	}
+
+	objectStack.resize(size);
+
+	int x = 0;
+	for (StackedObjects::iterator iter = objectStack.begin(); iter != objectStack.end(); ++iter, ++x) {
+		if (! iter->Load(hFile)) {
+			return FALSE;
+		}
+		if (this->IsActiveLBE(x) == true) {
+			LBEArray.push_back(LBENODE());
+			if (! LBEArray.back().Load(hFile)) {
 				return FALSE;
 			}
-			if (this->IsActiveLBE(x) == true) {
-				LBEArray.push_back(LBENODE());
-				if (! LBEArray.back().Load(hFile)) {
-					return FALSE;
-				}
-			}
 		}
-	}
-	else
-	{
-		OLD_OBJECTTYPE_101 OldSavedObject101;
-		//we are loading an older version (only load once, so use "else if")
-		//first load the data based on what version was stored
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			if ( !FileRead( hFile, &OldSavedObject101, sizeof(OLD_OBJECTTYPE_101), &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-		}
-		/*
-		else if ( guiCurrentSaveGameVersion < SECOND_SAVEGAME_DATATYPE_CHANGE )
-			(*pLoadingFunction)( hFile, &OldSavedObject999, sizeof(OLD_OBJECTTYPE_999), &uiNumBytesRead );
-		*/
-
-		//now we have the data that needs to be converted (keep on converting up, so use "if")
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			(*this) = OldSavedObject101;
-			//OldSavedObject999 = OldSavedObject101;
-		}
-		//change this when changing the file version again
-		/*
-		if ( guiCurrentSaveGameVersion < SECOND_SAVEGAME_DATATYPE_CHANGE )
-		{
-			(*this) = OldSavedObject999;
-		}
-		*/
 	}
 	RemoveProhibitedAttachments(NULL, this, (*this).usItem);
 	return TRUE;
@@ -3225,16 +3260,29 @@ BOOLEAN OBJECTTYPE::Load( INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorM
 
 BOOLEAN OBJECTTYPE::Save( HWFILE hFile, bool fSavingMap )
 {
-	//if we are saving this to a map file it will be loaded with FileRead
-	UINT32 uiNumBytesWritten;
 	int size = objectStack.size();
-	if ( !FileWrite( hFile, this, SIZEOF_OBJECTTYPE_POD, &uiNumBytesWritten ) )
+	if (fSavingMap)
 	{
-		return(FALSE);
+		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
+		UINT32 uiNumBytesWritten;
+		if ( !FileWrite( hFile, this, SIZEOF_OBJECTTYPE_POD, &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
+		if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+		{
+			return(FALSE);
+		}
 	}
-	if ( !FileWrite( hFile, &size, sizeof(int), &uiNumBytesWritten ) )
+	else
 	{
-		return(FALSE);
+		SaveWriter w(hFile);
+		w.u16(usItem);
+		w.u8 (ubNumberOfObjects);
+		w.u8 (ubMission);
+		w.u8 (fFlags);
+		w.i32(size);
+		if (!w.good()) return FALSE;
 	}
 	int x = 0;
 	for (StackedObjects::iterator iter = objectStack.begin(); iter != objectStack.end(); ++iter, ++x) {
