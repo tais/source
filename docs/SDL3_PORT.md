@@ -1226,6 +1226,34 @@ all three platforms.
 
 ---
 
+## Display & windowing enhancements (future)
+
+Quality-of-life / presentation work surfaced while play-testing on
+macOS. None are blocking; grouped here because they all live in the
+SDL3 present path ([sgp/sdl_video.cpp](../sgp/sdl_video.cpp)) and pair
+naturally with the Phase 6b RGBA8888 work.
+
+1. **Lock the window size / aspect ratio, + fullscreen toggle.** The
+   window is currently freely resizable on both axes, which stretches
+   the fixed-resolution framebuffer and distorts the game (verified:
+   resizing vertically/horizontally messes up how it looks). Either pin
+   the window to the render resolution (or integer multiples of it), or
+   constrain resizing to the correct aspect ratio with letterboxing
+   (`SDL_SetRenderLogicalPresentation` with `SDL_LOGICAL_PRESENTATION_LETTERBOX`).
+   Add a fullscreen ↔ windowed toggle.
+2. **Display sharpening / enhancement when scaled or fullscreen.**
+   *Research item.* Pick a scale mode (nearest vs linear) and/or a
+   sharpen/upscale filter — integer scaling, a scanline/CRT look, or an
+   xBR/Scale2x-style shader — so an upscaled image reads crisp rather
+   than blurry or blocky.
+3. **Render certain screens larger when window space allows.**
+   *Research item.* e.g. the laptop phase could use more of a large
+   window instead of the fixed game-resolution viewport. Needs a look at
+   how those screens are laid out (fixed lo-res / 640-based coords) and
+   whether a screen can scale independently of the tactical viewport.
+
+---
+
 ## Build hygiene — warning cleanup
 
 Tracked on branch `warning-cleanup` (off `master` after the SDL3-port
