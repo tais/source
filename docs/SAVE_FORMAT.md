@@ -175,11 +175,20 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
 
 ## Implementation status
 
-- ☐ Serializer core (`sgp/SaveSerializer.{h,cpp}`) — portable LE primitives +
+- ☑ Serializer core (`sgp/SaveSerializer.{h,cpp}`) — portable LE primitives +
   `wstr` (16-bit on disk ↔ `wchar_t` in memory).
-- ☐ Migrate leaf structs (OBJECTTYPE, REAL_OBJECT, INVENTORY_IN_SLOT, WORLDITEM,
-  MILITIA), then MERCPROFILESTRUCT / SOLDIERCREATE_STRUCT / SOLDIERTYPE, then
-  containers / sector data.
+- ☑ Migrate the item/object leaf chain: `ObjectData` (incl. its anonymous
+  scalar union as a canonical fixed-size LE byte block), `StackedObjectData`,
+  `OBJECTTYPE`, `LBENODE`, `REAL_OBJECT`, `INVENTORY_IN_SLOT`, `WORLDITEM`,
+  plus standalone `MILITIA` and `DEALER_SPECIAL_ITEM`.
+    - Shared save/map structs (`OBJECTTYPE`/`WORLDITEM`/`StackedObjectData`/
+      `LBENODE`) branch on `fSavingMap`: the new format is used for savegames
+      only; map files keep the legacy raw-blob write and the separate
+      `Load(INT8**, mapVersion)` map-load path, so `.map` files are untouched.
+    - `REAL_OBJECT`'s runtime `LEVELNODE*` pointers (`pNode`/`pShadow`) are no
+      longer persisted — set NULL on load; the physics update rebuilds them.
+- ☐ Migrate the big POD structs: MERCPROFILESTRUCT / SOLDIERCREATE_STRUCT /
+  SOLDIERTYPE, then remaining containers / sector data.
 - ☐ Audit top-level `SaveLoadGame` `FileWrite`/`FileRead` for bare
   `int`/`long`/`enum`/`BOOLEAN` and raw struct blobs.
 - ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
