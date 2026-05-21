@@ -193,7 +193,13 @@ UINT32 uiRed, uiGreen, uiBlue;
 	uiGreen=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peGreen;
 	uiBlue=(UINT32)FontObjs[FontDefault]->pPaletteEntry[ubBackground].peBlue;
 
-	FontBackground16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+	// 0 == transparent background (see header). Black used to collapse to 0
+	// in RGB565; with true-colour Get16BPPColor it is 0xFF000000, so keep the
+	// "black background == transparent" convention explicitly.
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontBackground16 = 0;
+	else
+		FontBackground16=Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
     if ( iUseWinFonts) {
 	    if (GET_WINFONT() != -1)
 		    {
@@ -224,7 +230,11 @@ void SetRGBFontBackground( UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue )
 {
 	if((FontDefault < 0) || (FontDefault > MAX_FONTS))
 		return;
-	FontBackground16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
+	// 0 == transparent background; preserve "black background == transparent".
+	if ( uiRed == 0 && uiGreen == 0 && uiBlue == 0 )
+		FontBackground16 = 0;
+	else
+		FontBackground16 = Get16BPPColor( FROMRGB( uiRed, uiGreen, uiBlue ) );
 	if (iUseWinFonts) {
 		if (GET_WINFONT() != -1)
 		{
