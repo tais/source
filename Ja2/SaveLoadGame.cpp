@@ -1023,70 +1023,37 @@ BOOLEAN MERC_LEAVE_ITEM::Save(HWFILE hFile)
 
 BOOLEAN MERC_LEAVE_ITEM::Load(HWFILE hFile)
 {
-	UINT32 uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	// Portable save-format v2: the struct is just the embedded OBJECTTYPE.
+	if ( !this->object.Load(hFile) )
 	{
-		if ( !this->object.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OLD_MERC_LEAVE_ITEM_101 oldItem;
-			if ( !FileRead( hFile, &oldItem, sizeof( OLD_MERC_LEAVE_ITEM_101 ), &uiNumBytesRead ) )
-			{
-				return FALSE;
-			}
-			this->object = oldItem.oldObject;
-		}
+		return FALSE;
 	}
 	return TRUE;
 }
 
 BOOLEAN ITEM_CURSOR_SAVE_INFO::Load(HWFILE hFile)
 {
-	UINT32 uiNumBytesRead;
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
-	{
-		//3 bytes of info, screw being neat
-		if ( !FileRead( hFile, this, SIZEOF_ITEM_CURSOR_SAVE_INFO_POD, &uiNumBytesRead ) )
-		{
-			return FALSE;
-		}
-		if ( !this->ItemPointerInfo.Load(hFile) )
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OLD_ITEM_CURSOR_SAVE_INFO_101 oldInfo101;
-			if ( !FileRead( hFile, &oldInfo101, sizeof(OLD_ITEM_CURSOR_SAVE_INFO_101), &uiNumBytesRead ) )
-			{
-				return FALSE;
-			}
-			*this = oldInfo101;
-		}
+	SaveReader r(hFile);
+	ubSoldierID  = r.u16();
+	ubInvSlot    = r.u8();
+	fCursorActive= r.boolean();
+	if (!r.good()) return FALSE;
 
+	if ( !this->ItemPointerInfo.Load(hFile) )
+	{
+		return FALSE;
 	}
 	return TRUE;
 }
 
 BOOLEAN ITEM_CURSOR_SAVE_INFO::Save(HWFILE hFile)
 {
-	UINT32 uiNumBytesWritten;
-	//3 bytes of info, screw being neat
-	if ( !FileWrite( hFile, this, SIZEOF_ITEM_CURSOR_SAVE_INFO_POD, &uiNumBytesWritten ) )
-	{
-		return FALSE;
-	}
+	SaveWriter w(hFile);
+	w.u16(ubSoldierID);
+	w.u8 (ubInvSlot);
+	w.boolean(fCursorActive);
+	if (!w.good()) return FALSE;
+
 	if ( !this->ItemPointerInfo.Save(hFile, FALSE) )
 	{
 		return FALSE;
@@ -1097,25 +1064,62 @@ BOOLEAN ITEM_CURSOR_SAVE_INFO::Save(HWFILE hFile)
 //dnl ch42 250909
 BOOLEAN SOLDIERCREATE_STRUCT::Save(HWFILE hFile, bool fSavingMap, FLOAT dMajorMapVersion, UINT8 ubMinorMapVersion)
 {
-	PTR pData = this;
-	UINT32 uiBytesToWrite = SIZEOF_SOLDIERCREATE_STRUCT_POD;
-	OLD_SOLDIERCREATE_STRUCT_101 OldSoldierCreateStruct;
-	if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
+	if (fSavingMap)
 	{
-		OldSoldierCreateStruct = *this;
-		pData = &OldSoldierCreateStruct;
-		uiBytesToWrite = SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD;
-	}
-	UINT32 uiBytesWritten = 0;
-	FileWrite(hFile, pData, uiBytesToWrite, &uiBytesWritten);
-	if(uiBytesToWrite == uiBytesWritten)
-	{
+		// Map files keep the legacy raw-blob layout (read back via Load(INT8**)).
+		PTR pData = this;
+		UINT32 uiBytesToWrite = SIZEOF_SOLDIERCREATE_STRUCT_POD;
+		OLD_SOLDIERCREATE_STRUCT_101 OldSoldierCreateStruct;
 		if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
-			return(TRUE);
-		if(Inv.Save(hFile, fSavingMap))
-			return(TRUE);
+		{
+			OldSoldierCreateStruct = *this;
+			pData = &OldSoldierCreateStruct;
+			uiBytesToWrite = SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD;
+		}
+		UINT32 uiBytesWritten = 0;
+		FileWrite(hFile, pData, uiBytesToWrite, &uiBytesWritten);
+		if(uiBytesToWrite == uiBytesWritten)
+		{
+			if(dMajorMapVersion == VANILLA_MAJOR_MAP_VERSION && ubMinorMapVersion == VANILLA_MINOR_MAP_VERSION)
+				return(TRUE);
+			if(Inv.Save(hFile, fSavingMap))
+				return(TRUE);
+		}
+		return(FALSE);
 	}
-	return(FALSE);
+
+	// Portable save-format v2 (savegame path).
+	SaveWriter w(hFile);
+	w.boolean(fStatic);
+	w.u8 (ubProfile);
+	w.boolean(fPlayerMerc); w.boolean(fPlayerPlan); w.boolean(fCopyProfileItemsOver);
+	w.i16(sSectorX); w.i16(sSectorY);
+	w.u8 (ubDirection);
+	w.i32(sInsertionGridNo);
+	w.i8 (bTeam); w.i8(ubBodyType);
+	w.i8 (bAttitude); w.i8(bOrders);
+	w.i8 (bLifeMax); w.i8(bLife); w.i8(bAgility); w.i8(bDexterity); w.i8(bExpLevel);
+	w.i8 (bMarksmanship); w.i8(bMedical); w.i8(bMechanical); w.i8(bExplosive);
+	w.i8 (bLeadership); w.i8(bStrength); w.i8(bWisdom); w.i8(bMorale); w.i8(bAIMorale);
+	w.str8(HeadPal, 30); w.str8(PantsPal, 30); w.str8(VestPal, 30); w.str8(SkinPal, 30); w.str8(MiscPal, 30);
+	for (int i = 0; i < MAXPATROLGRIDS; ++i) w.i32(sPatrolGrid[i]);
+	w.i8 (bPatrolCnt);
+	w.boolean(fVisible);
+	w.wstr(name, 10);
+	w.u8 (ubSoldierClass);
+	w.boolean(fOnRoof);
+	w.i8 (bSectorZ);
+	// pExistingSoldier is a runtime pointer - not persisted (NULL on load).
+	w.boolean(fUseExistingSoldier);
+	w.u8 (ubCivilianGroup);
+	w.boolean(fKillSlotIfOwnerDies);
+	w.u8 (ubScheduleID);
+	w.boolean(fUseGivenVehicle);
+	w.i8 (bUseGivenVehicleID);
+	w.boolean(fHasKeys);
+	if (!w.good()) return FALSE;
+
+	return Inv.Save(hFile, FALSE) ? TRUE : FALSE;
 }
 
 BOOLEAN SOLDIERCREATE_STRUCT::Load(INT8 **hBuffer, FLOAT dMajorMapVersion, UINT8 ubMinorMapVersion)
@@ -1154,9 +1158,36 @@ BOOLEAN SOLDIERCREATE_STRUCT::Load(HWFILE hFile, int versionToLoad, bool loadChe
 	//if we are at the most current version, then fine
 	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE)
 	{
-		//the info has changed at version 102
-		//first, load the POD
-		if ( !FileRead( hFile, this, SIZEOF_SOLDIERCREATE_STRUCT_POD, &uiNumBytesRead ) )
+		// Portable save-format v2 (savegame path).
+		SaveReader r(hFile);
+		fStatic               = r.boolean();
+		ubProfile             = r.u8();
+		fPlayerMerc           = r.boolean(); fPlayerPlan = r.boolean(); fCopyProfileItemsOver = r.boolean();
+		sSectorX              = r.i16(); sSectorY = r.i16();
+		ubDirection           = r.u8();
+		sInsertionGridNo      = r.i32();
+		bTeam                 = r.i8(); ubBodyType = r.i8();
+		bAttitude             = r.i8(); bOrders = r.i8();
+		bLifeMax              = r.i8(); bLife = r.i8(); bAgility = r.i8(); bDexterity = r.i8(); bExpLevel = r.i8();
+		bMarksmanship         = r.i8(); bMedical = r.i8(); bMechanical = r.i8(); bExplosive = r.i8();
+		bLeadership           = r.i8(); bStrength = r.i8(); bWisdom = r.i8(); bMorale = r.i8(); bAIMorale = r.i8();
+		r.str8(HeadPal, 30); r.str8(PantsPal, 30); r.str8(VestPal, 30); r.str8(SkinPal, 30); r.str8(MiscPal, 30);
+		for (int i = 0; i < MAXPATROLGRIDS; ++i) sPatrolGrid[i] = r.i32();
+		bPatrolCnt            = r.i8();
+		fVisible              = r.boolean();
+		r.wstr(name, 10);
+		ubSoldierClass        = r.u8();
+		fOnRoof               = r.boolean();
+		bSectorZ              = r.i8();
+		pExistingSoldier      = NULL; // runtime pointer - not persisted
+		fUseExistingSoldier   = r.boolean();
+		ubCivilianGroup       = r.u8();
+		fKillSlotIfOwnerDies  = r.boolean();
+		ubScheduleID          = r.u8();
+		fUseGivenVehicle      = r.boolean();
+		bUseGivenVehicleID    = r.i8();
+		fHasKeys              = r.boolean();
+		if (!r.good())
 		{
 			guiCurrentSaveGameVersion = tempVersion;
 			return(FALSE);
