@@ -440,8 +440,8 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	UINT32		uiLine;
 	UINT32		uiCol;
 
-	UINT16 *	pDest;
-	UINT16 *	pDestTemp;
+	PIXEL *	pDest;
+	PIXEL *	pDestTemp;
 	UINT32		uiDestStart;
 
 	UINT8 *		pScanLine;
@@ -450,7 +450,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	PTR				pDecompPtr;
 	UINT32		uiDecompressed;
 
-	UINT16 *	p16BPPPalette;
+	PIXEL *	p16BPPPalette;
 
 	// Assertions
 	Assert( hImage != NULL );
@@ -474,7 +474,7 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UIN
 	Assert( usDestWidth >= uiLineSize );
 	Assert( usDestHeight >= uiNumLines );
 
-	pDest = (UINT16 *) pDestBuf;
+	pDest = (PIXEL *) pDestBuf;
 	pDest += uiDestStart;
 	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "Start Copying at %p", pDest ) );
 
@@ -644,8 +644,8 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
 	UINT32 rows, cols;
 	UINT8	*pSrc, *pSrcTemp;
-	UINT16 *pDest, *pDestTemp;
-	UINT16 *p16BPPPalette;
+	PIXEL *pDest, *pDestTemp;
+	PIXEL *p16BPPPalette;
 
 
 	p16BPPPalette = hImage->pui16BPPPalette;
@@ -673,7 +673,7 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 	CHECKF( usDestHeight >= uiNumLines );
 
 	// Convert to Pixel specification
-	pDest = ( UINT16*)pDestBuf + uiDestStart;
+	pDest = ( PIXEL*)pDestBuf + uiDestStart;
 	pSrc =	hImage->p8BPPData + uiSrcStart;
 	DbgMessage( TOPIC_HIMAGE, DBG_LEVEL_3, String( "Start Copying at %p", pDest ) );
 

@@ -1602,7 +1602,7 @@ BOOLEAN ShadeMapElem( INT16 sMapX, INT16 sMapY, INT32 iColor )
 	PIXEL  *pDestBuf;
 	UINT8  *pSrcBuf;
 	SGPRect clip;
-	UINT16 *pOriginalPallette;
+	PIXEL *pOriginalPallette;
 
 	// get original video surface palette
 	CHECKF( GetVideoSurface( &hSrcVSurface, guiBIGMAP ) );
@@ -1660,7 +1660,7 @@ BOOLEAN ShadeMapElements(const INT32(&colorMap)[ MAXIMUM_VALID_Y_COORDINATE ][ M
 	// get original video surface palette
 	HVSURFACE hSrcVSurface;
 	CHECKF(GetVideoSurface(&hSrcVSurface, guiBIGMAP));
-	UINT16 * const pOriginalPallette = hSrcVSurface->p16BPPPalette;
+	PIXEL * const pOriginalPallette = hSrcVSurface->p16BPPPalette;
 
 	// Lock source buffer
 	UINT32 uiSrcPitchBYTES;

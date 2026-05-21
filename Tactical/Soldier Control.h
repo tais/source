@@ -1248,7 +1248,7 @@ public:
 	PaletteRepID		MiscPal;	// 30
 
 	SGPPaletteEntry	*p8BPPPalette; // 4
-	UINT16			*p16BPPPalette;
+	PIXEL			*p16BPPPalette;
 	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
 	PIXEL			*pGlowShades[ 20 ]; // 
 	PIXEL			*pCurrentShade;
@@ -1301,7 +1301,7 @@ public:
 
 	INT16			sLocatorOffX;
 	INT16			sLocatorOffY;
-	UINT16			*pForcedShade;
+	PIXEL			*pForcedShade;
 
 	INT8				bDisplayDamageCount;
 	UINT8			sWalkToAttackEndDirection;//shadooow: stores direction of merc at the destination grid
@@ -2478,7 +2478,7 @@ public:
 
 
 	SGPPaletteEntry							*p8BPPPalette; // 4
-	UINT16											*p16BPPPalette;
+	PIXEL											*p16BPPPalette;
 	PIXEL											*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
 	PIXEL											*pGlowShades[ 20 ]; // 
 	PIXEL											*pCurrentShade;
@@ -2626,7 +2626,7 @@ public:
 	BOOLEAN											fStopPendingNextTile;
 
 	BOOLEAN											fForceShade;
-	UINT16											*pForcedShade;
+	PIXEL											*pForcedShade;
 
 	INT8												bDisplayDamageCount;
 	INT8												fDisplayDamage;

@@ -64,8 +64,8 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 	pSrcPtr			= (UINT32 *)((UINT8 *)pSrc+(iSrcYPos*uiSrcPitch)+(iSrcXPos*4));
 	uiLineSkipSrc	= uiSrcPitch-(uiWidth*4);
 
-	pDestPtr		= (PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*2));
-	uiLineSkipDest	= uiDestPitch-(uiWidth*2);
+	pDestPtr		= (PIXEL *)((UINT8 *)pDest+(iDestYPos*uiDestPitch)+(iDestXPos*sizeof(PIXEL)));
+	uiLineSkipDest	= uiDestPitch-(uiWidth*sizeof(PIXEL));
 
 	UINT8 alpha, dst_channel, src_channel;
 	UINT8 red, green, blue;
@@ -79,6 +79,23 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 			//alpha = 255;
 			if(alpha > 0)
 			{
+#if SGP_PIXEL_DEPTH == 32
+				// dest is ARGB8888; source is alpha + R(low),G,B (FROMRGB layout)
+				const UINT32 d = *pDestPtr;
+				dst_channel = (UINT8)((d >> 16) & 0xFF);
+				src_channel = (UINT8)( *pSrcPtr        & 0xFF);
+				red   = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				dst_channel = (UINT8)((d >>  8) & 0xFF);
+				src_channel = (UINT8)((*pSrcPtr >>  8) & 0xFF);
+				green = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				dst_channel = (UINT8)( d         & 0xFF);
+				src_channel = (UINT8)((*pSrcPtr >> 16) & 0xFF);
+				blue  = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				*pDestPtr = 0xFF000000u | ((UINT32)red << 16) | ((UINT32)green << 8) | (UINT32)blue;
+#else
 				// r
 				dst_channel = (UINT8)((0x1F & *pDestPtr) << 3);
 				src_channel = (UINT8)((0xFF & *pSrcPtr) );
@@ -100,6 +117,7 @@ BOOLEAN Blt32BPPTo16BPPTrans(PIXEL *pDest, UINT32 uiDestPitch, UINT32 *pSrc, UIN
 
 				UINT32 newcolor = FROMRGB(red,green,blue);
 				*pDestPtr = Get16BPPColor(newcolor);
+#endif
 			}
 			pSrcPtr++;
 			pDestPtr++;
@@ -125,12 +143,12 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 	pSrcPtr			= (UINT32*)((UINT8*)pSrc + (iSrcYPos * uiSrcPitch) + (iSrcXPos * 4));
 	uiLineSkipSrc	= uiSrcPitch-(uiWidth*4);
 
-	pDstPtr			= (UINT16*)((UINT8*)pDst + (iDstYPos * uiDstPitch) + (iDstXPos * 2));
-	uiLineSkipDst	= uiDstPitch-(uiWidth*2);
+	pDstPtr			= (PIXEL*)((UINT8*)pDst + (iDstYPos * uiDstPitch) + (iDstXPos * sizeof(PIXEL)));
+	uiLineSkipDst	= uiDstPitch-(uiWidth*sizeof(PIXEL));
 
 	UINT8 alpha, dst_channel, src_channel;
 	UINT8 red, green, blue;
-	UINT16 tmpVal;
+	PIXEL tmpVal;
 	UINT32 newcolor;
 	do
 	{
@@ -145,6 +163,24 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 				// the darker shade
 				tmpVal = PixShade(*pDstPtr);
 
+#if SGP_PIXEL_DEPTH == 32
+				// Blend the dest with a darkened copy of itself (shadow),
+				// weighted by source alpha. Source colour is ignored.
+				const UINT32 d = *pDstPtr;
+				dst_channel = (UINT8)((d      >> 16) & 0xFF);
+				src_channel = (UINT8)((tmpVal >> 16) & 0xFF);
+				red   = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				dst_channel = (UINT8)((d      >>  8) & 0xFF);
+				src_channel = (UINT8)((tmpVal >>  8) & 0xFF);
+				green = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				dst_channel = (UINT8)( d        & 0xFF);
+				src_channel = (UINT8)( tmpVal   & 0xFF);
+				blue  = (UINT8)( g_AlphaTimesValueCache[255-alpha][dst_channel] + g_AlphaTimesValueCache[alpha][src_channel] );
+
+				*pDstPtr = 0xFF000000u | ((UINT32)red << 16) | ((UINT32)green << 8) | (UINT32)blue;
+#else
 				// r
 				dst_channel = (UINT8)((0x1F & *pDstPtr) << 3);
 				//src_channel = (UINT8)((0xFF & tmpVal) );
@@ -166,6 +202,7 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 
 				newcolor = FROMRGB(red,green,blue);
 				*pDstPtr = Get16BPPColor(newcolor);
+#endif
 			}
 			pSrcPtr++;
 			pDstPtr++;
@@ -882,7 +919,7 @@ ETRLEObject *pTrav;
 **********************************************************************************************/
 UINT16 *InitZBuffer(UINT32 uiPitch, UINT32 uiHeight)
 {
-PIXEL *pBuffer;
+UINT16 *pBuffer;
 	/*
 	*	ClippingRect was declared first with SCREEN_WIDTH and HEIGHT but now they are not
 	*	constant so i will initialize it here
@@ -895,7 +932,7 @@ PIXEL *pBuffer;
 	ClippingRect.iRight		= SCREEN_WIDTH;
 	ClippingRect.iBottom	= SCREEN_HEIGHT;
 
-	if((pBuffer = (PIXEL *) MemAlloc(uiPitch*uiHeight))==NULL)
+	if((pBuffer = (UINT16 *) MemAlloc(uiPitch*uiHeight))==NULL)
 		return(NULL);
 	BYTE* data = (BYTE*)pBuffer;
 	SurfaceData::SetApplicationData(data);
@@ -911,7 +948,7 @@ PIXEL *pBuffer;
 	Frees up the memory allocated for the Z buffer.
 
 **********************************************************************************************/
-BOOLEAN ShutdownZBuffer(PIXEL *pBuffer)
+BOOLEAN ShutdownZBuffer(UINT16 *pBuffer)
 {
 	SurfaceData::ReleaseApplicationData((BYTE*)pBuffer);
 	MemFree(pBuffer);
@@ -6380,17 +6417,17 @@ PIXEL		*startoffset;
 	y1real=__max(0, y1);
 	y2real=__min(479, y2);
 
-	startoffset=pBuffer+(y1real*uiDestPitchBYTES/2)+x1real;
+	startoffset=pBuffer+(y1real*uiDestPitchBYTES/sizeof(PIXEL))+x1real;
 	lines=y2real-y1real+1;
 	linelength=x2real-x1real+1;
-	lineskip=uiDestPitchBYTES-(linelength*2);
+	lineskip=uiDestPitchBYTES-(linelength*sizeof(PIXEL));
 
 	// Portable FillRect16BPP.
 	{
 		PIXEL* row = startoffset;
 		for (UINT32 y = 0; y < lines; ++y) {
 			for (UINT32 x = 0; x < linelength; ++x) row[x] = color;
-			row = (UINT16*)((UINT8*)row + uiDestPitchBYTES);
+			row = (PIXEL*)((UINT8*)row + uiDestPitchBYTES);
 		}
 		(void)lineskip;
 	}

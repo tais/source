@@ -51,7 +51,7 @@ typedef struct
 
 typedef struct
 {
-	UINT16 *		p16BPPData;
+	PIXEL *			p16BPPData;
 	UINT16			usRegionIndex;
 	UINT8			ubShadeLevel;
 	UINT16			usWidth;
