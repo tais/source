@@ -14173,7 +14173,7 @@ PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UI
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (UINT16 *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(UINT16)* 256 );
 
 	for ( cnt = 0; cnt < 256; ++cnt )
 	{
@@ -14228,7 +14228,7 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 
 	Assert( pPalette != NULL );
 
-	p16BPPPalette = (UINT16 *)MemAlloc( sizeof(UINT16)* 256 );
+	p16BPPPalette = (PIXEL *)MemAlloc( sizeof(UINT16)* 256 );
 
 	for ( cnt = 0; cnt < 256; cnt++ )
 	{

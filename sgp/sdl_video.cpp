@@ -444,7 +444,7 @@ static void RestoreCursorPixels()
 	if (gCursorSaveX0 >= gCursorSaveX1 || gCursorSaveY0 >= gCursorSaveY1) return;
 	for (INT32 sy = gCursorSaveY0; sy < gCursorSaveY1; ++sy) {
 		const PIXEL* saveRow = gCursorSavePixels + (size_t)sy * MAX_CURSOR_WIDTH;
-		UINT16* fbRow = gFrameBuffer + (size_t)(gCursorStampDstY + sy) * SCREEN_WIDTH + gCursorStampDstX;
+		PIXEL* fbRow = gFrameBuffer + (size_t)(gCursorStampDstY + sy) * SCREEN_WIDTH + gCursorStampDstX;
 		for (INT32 sx = gCursorSaveX0; sx < gCursorSaveX1; ++sx) fbRow[sx] = saveRow[sx];
 	}
 }

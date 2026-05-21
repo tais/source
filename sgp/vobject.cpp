@@ -573,7 +573,7 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 				memset(hVObject->p16BPPObject, 0, sizeof(SixteenBPPObjectInfo));
 
 				int SIZE = hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth * sizeof(UINT32);
-				hVObject->p16BPPObject->p16BPPData = (UINT16*)MemAlloc(SIZE); // UINT32*
+				hVObject->p16BPPObject->p16BPPData = (PIXEL *)MemAlloc(SIZE); // UINT32*
 				if(!hVObject->p16BPPObject->p16BPPData)
 				{
 					MemFree(hVObject->p16BPPObject);
@@ -612,7 +612,7 @@ HVOBJECT CreateVideoObject( VOBJECT_DESC *VObjectDesc )
 				memset(hVObject->p16BPPObject, 0, sizeof(SixteenBPPObjectInfo));
 
 				int SIZE = hImage->pETRLEObject[0].usHeight * hImage->pETRLEObject[0].usWidth * sizeof(UINT16);
-				hVObject->p16BPPObject->p16BPPData = (UINT16*)MemAlloc(SIZE);
+				hVObject->p16BPPObject->p16BPPData = (PIXEL *)MemAlloc(SIZE);
 				if(!hVObject->p16BPPObject->p16BPPData)
 				{
 					MemFree(hVObject->p16BPPObject);
@@ -1385,7 +1385,7 @@ BOOLEAN ConvertVObjectRegionTo16BPP( HVOBJECT hVObject, UINT16 usRegionIndex, UI
 	p16BPPObject = &(hVObject->p16BPPObject[hVObject->usNumberOf16BPPObjects]);
 
 	// need twice as much memory because of going from 8 to 16 bits
-	p16BPPObject->p16BPPData = (UINT16 *) MemAlloc( hVObject->pETRLEObject[usRegionIndex].uiDataLength * 2 );
+	p16BPPObject->p16BPPData = (PIXEL *) MemAlloc( hVObject->pETRLEObject[usRegionIndex].uiDataLength * 2 );
 	if (p16BPPObject->p16BPPData == NULL)
 	{
 		return( FALSE );

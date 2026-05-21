@@ -172,7 +172,7 @@ BOOLEAN Blt32BPPTo16BPPTransShadow(PIXEL *pDst, UINT32 uiDstPitch, UINT32 *pSrc,
 		}
 		while (--w != 0);
 		pSrcPtr = (UINT32*)((UINT8*)pSrcPtr + uiLineSkipSrc);
-		pDstPtr = (UINT16*)((UINT8*)pDstPtr + uiLineSkipDst);
+		pDstPtr = (PIXEL *)((UINT8 *)pDstPtr + uiLineSkipDst);
 	}
 	while (--uiHeight != 0);
 
@@ -895,7 +895,7 @@ PIXEL *pBuffer;
 	ClippingRect.iRight		= SCREEN_WIDTH;
 	ClippingRect.iBottom	= SCREEN_HEIGHT;
 
-	if((pBuffer = (UINT16 *) MemAlloc(uiPitch*uiHeight))==NULL)
+	if((pBuffer = (PIXEL *) MemAlloc(uiPitch*uiHeight))==NULL)
 		return(NULL);
 	BYTE* data = (BYTE*)pBuffer;
 	SurfaceData::SetApplicationData(data);
@@ -940,7 +940,7 @@ UINT32 uiLineSkip, usWidth, usHeight;
 
 	// Portable BlitZRect: fill rect of Z buffer with usZValue.
 	{
-		PIXEL* row = (UINT16*)pZPtr;
+		UINT16* row = (UINT16*)pZPtr;   // Z-buffer row (depth values stay UINT16)
 		for (UINT32 y = 0; y < usHeight; ++y) {
 			for (UINT32 x = 0; x < usWidth; ++x) row[x] = usZValue;
 			row = (UINT16*)((UINT8*)row + uiPitch);
@@ -1082,7 +1082,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip( PIXEL *pBuffer, UINT32 uiDestPit
 					++src;
 				}
 			}
-			rowBase = (UINT16*)((UINT8*)rowBase + uiDestPitchBYTES);
+			rowBase = (PIXEL *)((UINT8 *)rowBase + uiDestPitchBYTES);
 		}
 	}
 
@@ -5666,7 +5666,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip( PIXEL *pBuffer, UINT32 uiDestPi
 					++src;
 				}
 			}
-			rowBase = (UINT16*)((UINT8*)rowBase + uiDestPitchBYTES);
+			rowBase = (PIXEL *)((UINT8 *)rowBase + uiDestPitchBYTES);
 		}
 	}
 

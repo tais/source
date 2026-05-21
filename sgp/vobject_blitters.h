@@ -40,7 +40,7 @@ private:
 
 extern SGPRect		ClippingRect;
 extern UINT32			guiTranslucentMask;
-extern UINT16			White16BPPPalette[ 256 ];
+extern PIXEL			White16BPPPalette[ 256 ];
 
 unsigned short blendWithAlpha(unsigned int rgb565New, unsigned int rgb565Old, unsigned int alpha);
 

@@ -133,7 +133,7 @@ void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsi
 
 	for (int y = 0; y < copyH; ++y) {
 		const unsigned char* srcRow = pixels + (clipT + y) * srcW + clipL;
-		UINT16* dstRow = fb + (dstY0 + clipT + y) * stridePx + (dstX0 + clipL);
+		PIXEL* dstRow = fb + (dstY0 + clipT + y) * stridePx + (dstX0 + clipL);
 		for (int x = 0; x < copyW; ++x) {
 			const unsigned char idx = srcRow[x];
 			const unsigned char r8 = palette[idx * 3 + 0];

@@ -101,7 +101,7 @@ typedef struct
 	SGPFILENAME				ImageFile;
 	UINT32					iFileLoader;
 	SGPPaletteEntry*		pPalette;
-	UINT16*					pui16BPPPalette;
+	PIXEL*					pui16BPPPalette;
 	UINT8*					pAppData;
 	UINT32					uiAppDataSize;
 	// This union is used to describe each data type and is flexible to include the
