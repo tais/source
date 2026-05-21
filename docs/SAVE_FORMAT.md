@@ -187,8 +187,22 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
       `Load(INT8**, mapVersion)` map-load path, so `.map` files are untouched.
     - `REAL_OBJECT`'s runtime `LEVELNODE*` pointers (`pNode`/`pShadow`) are no
       longer persisted — set NULL on load; the physics update rebuilds them.
-- ☐ Migrate the big POD structs: MERCPROFILESTRUCT / SOLDIERCREATE_STRUCT /
-  SOLDIERTYPE, then remaining containers / sector data.
+- ☑ Field-visitor adapters (`SaveFieldWriter`/`SaveFieldReader` in
+  `SaveSerializer.h`): one templated `Xfer` field list, visited by either,
+  drives both save and load so the on-disk order can't drift on big structs.
+- ☑ `SOLDIERCREATE_STRUCT` (savegame Save/Load; map path on `fSavingMap`
+  stays legacy), plus `MERC_LEAVE_ITEM` and `ITEM_CURSOR_SAVE_INFO`.
+- ☑ `MERCPROFILESTRUCT` via the field visitor (CHAR16 names → `wstr`,
+  PaletteRepID → `str8`, inventory vectors, `STRUCT_Records`, dynamic-opinion
+  2D arrays, growth modifiers as full INT16). The legacy/encrypted Prof.dat
+  load path (`forceLoadOldVersion=true`) is preserved untouched.
+- ☐ **`SOLDIERTYPE` — the central struct, still TODO and the largest single
+  piece.** ~300 POD fields + 7 sub-structs (`STRUCT_AIData`/`Flags`/
+  `TimeChanges`/`TimeCounters`/`DRUGS`/`Statistics`/`Pathing`) ≈ 550 fields,
+  with ~20 pointer members interleaved in the POD (transient → skip on save,
+  re-derived by `InitializeExtraData()` on load). All-or-nothing: a partial
+  migration desyncs Save/Load. Use the field visitor; classify every pointer
+  as transient-vs-data while migrating. Best done as its own reviewed pass.
 - ☐ Audit top-level `SaveLoadGame` `FileWrite`/`FileRead` for bare
   `int`/`long`/`enum`/`BOOLEAN` and raw struct blobs.
 - ☐ Bump `SAVE_GAME_VERSION`; verify save→quit→reload + round-trip diff on macOS;
