@@ -3062,7 +3062,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClip(PIXEL *pBuffer, UINT32 uiDestPi
 						const INT32 dx = srcX - LeftSkip;
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
-								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 							} else {
 								rowDest[dx] = p16BPPPalette[v];
 							}
@@ -3189,7 +3189,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZClipAlpha(PIXEL *pBuffer, UINT32 uiD
 						const INT32 dx = srcX - LeftSkip;
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
-								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 							} else {
 								rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
 							}
@@ -3306,7 +3306,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClip(PIXEL *pBuffer, UINT32 uiDestPit
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (v == 254) {
-							if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+							if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 						} else {
 							rowDest[dx] = p16BPPPalette[v];
 						}
@@ -3429,7 +3429,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowClipAlpha(PIXEL *pBuffer, UINT32 uiDe
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (v == 254) {
-							if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+							if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 						} else {
 							rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
 						}
@@ -3546,7 +3546,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClip(PIXEL *pBuffer, UINT32 uiDest
 						const INT32 dx = srcX - LeftSkip;
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
-								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 							} else {
 								rowDest[dx] = p16BPPPalette[v];
 							}
@@ -3672,7 +3672,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBClipAlpha(PIXEL *pBuffer, UINT32 u
 						const INT32 dx = srcX - LeftSkip;
 						if (usZValue >= rowZ[dx]) {
 							if (v == 254) {
-								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx)];
+								if (!fIgnoreShadows) rowDest[dx] = PixShade(rowDest[dx]);
 							} else {
 								rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
 							}
@@ -3795,7 +3795,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClip(PIXEL *pBuffer, UINT3
 						if (rowZ[dx] <= usZValue) {
 							if (v == 254) {
 								if (rowZ[dx] < usZValue && !fIgnoreShadows) {
-									rowDest[dx] = PixShade(rowDest[dx)];
+									rowDest[dx] = PixShade(rowDest[dx]);
 								}
 							} else {
 								rowDest[dx] = p16BPPPalette[v];
@@ -3930,7 +3930,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowZNBObscuredClipAlpha(PIXEL *pBuffer, 
 						if (rowZ[dx] <= usZValue) {
 							if (v == 254) {
 								if (rowZ[dx] < usZValue && !fIgnoreShadows) {
-									rowDest[dx] = PixShade(rowDest[dx)];
+									rowDest[dx] = PixShade(rowDest[dx]);
 								}
 							} else {
 								rowDest[dx] = blendWithAlpha(p16BPPPalette[v], rowDest[dx], a);
@@ -4058,7 +4058,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransShadowBelowOrEqualZNBClip( PIXEL *pBuffer, 
 						if (rowZ[dx] <= usZValue) {
 							if (v == 254) {
 								if (rowZ[dx] < usZValue) {
-									rowDest[dx] = PixShade(rowDest[dx)];
+									rowDest[dx] = PixShade(rowDest[dx]);
 								}
 							} else {
 								rowDest[dx] = p16BPPPalette[v];
@@ -4265,7 +4265,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZClip( PIXEL *pBuffer, UINT32 uiDestPitchB
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
-							rowDest[dx] = PixShade(rowDest[dx)];
+							rowDest[dx] = PixShade(rowDest[dx]);
 							rowZ[dx]    = usZValue;
 						}
 					}
@@ -4464,7 +4464,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowZNBClip( PIXEL *pBuffer, UINT32 uiDestPitc
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
-							rowDest[dx] = PixShade(rowDest[dx)];
+							rowDest[dx] = PixShade(rowDest[dx]);
 						}
 					}
 					++src;
@@ -5832,7 +5832,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip( PIXEL *pBuffer, UINT32 uiDestPitchBY
 					++src;  // skip palette index byte (unused for shadow)
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						rowDest[dx] = PixShade(rowDest[dx)];
+						rowDest[dx] = PixShade(rowDest[dx]);
 					}
 				}
 			}
@@ -5892,7 +5892,7 @@ PIXEL *DestPtr;
 		PIXEL* rowDest = DestPtr;
 		for (INT32 y = 0; y < height; ++y) {
 			for (INT32 x = 0; x < width; ++x) {
-				rowDest[x] = PixShade(rowDest[x)];
+				rowDest[x] = PixShade(rowDest[x]);
 			}
 			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
 		}
@@ -5948,7 +5948,7 @@ PIXEL *DestPtr;
 		PIXEL* rowDest = DestPtr;
 		for (INT32 y = 0; y < height; ++y) {
 			for (INT32 x = 0; x < width; ++x) {
-				rowDest[x] = PixIntensity(rowDest[x)];
+				rowDest[x] = PixIntensity(rowDest[x]);
 			}
 			rowDest = (UINT16*)((UINT8*)rowDest + uiDestPitchBYTES);
 		}
@@ -7086,7 +7086,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferOutlineShadowClip( PIXEL *pBuffer, UINT32 uiDest
 					(void)*src++;  // src byte unused -- shade dest unconditionally
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						rowDest[dx] = PixShade(rowDest[dx)];
+						rowDest[dx] = PixShade(rowDest[dx]);
 					}
 				}
 			}
@@ -7567,7 +7567,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZClip( PIXEL *pBuffer, UINT32 uiDestPit
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
 							rowZ[dx]    = usZValue;
-							rowDest[dx] = PixIntensity(rowDest[dx)];
+							rowDest[dx] = PixIntensity(rowDest[dx]);
 						}
 					}
 				}
@@ -7768,7 +7768,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityZNBClip( PIXEL *pBuffer, UINT32 uiDestP
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
 						if (rowZ[dx] < usZValue) {
-							rowDest[dx] = PixIntensity(rowDest[dx)];
+							rowDest[dx] = PixIntensity(rowDest[dx]);
 						}
 					}
 				}
@@ -7885,7 +7885,7 @@ BOOLEAN Blt8BPPDataTo16BPPBufferIntensityClip( PIXEL *pBuffer, UINT32 uiDestPitc
 					(void)*src++;
 					if (srcX >= LeftSkip && srcX < rightEdge) {
 						const INT32 dx = srcX - LeftSkip;
-						rowDest[dx] = PixIntensity(rowDest[dx)];
+						rowDest[dx] = PixIntensity(rowDest[dx]);
 					}
 				}
 			}

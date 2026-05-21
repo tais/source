@@ -700,8 +700,11 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDest
 
 }
 
-UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
+PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette )
 {
+#if SGP_PIXEL_DEPTH == 32
+	return Create32BPPPalette( pPalette );
+#else
 	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt;
 	UINT8	r,g,b;
@@ -747,6 +750,7 @@ UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
 	}
 
 	return( p16BPPPalette );
+#endif
 }
 
 /**********************************************************************************************
@@ -773,8 +777,11 @@ UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette )
 	4) For gamma correction, pass in weighted values for each color.
 
 **********************************************************************************************/
-UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono)
+PIXEL *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono)
 {
+#if SGP_PIXEL_DEPTH == 32
+	return Create32BPPPaletteShaded( pPalette, rscale, gscale, bscale, mono );
+#else
 	UINT16 *p16BPPPalette, r16, g16, b16, usColor;
 	UINT32 cnt, lumin;
 	UINT32 rmod, gmod, bmod;
@@ -835,6 +842,7 @@ UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 		p16BPPPalette[ cnt ] = usColor;
 	}
 	return( p16BPPPalette );
+#endif
 }
 
 // ---- 32bpp (ARGB8888) palette/color generators (Phase 6b) -----------------

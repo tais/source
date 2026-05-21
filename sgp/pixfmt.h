@@ -16,7 +16,6 @@
 // byte-for-byte the current RGB565 pipeline.
 
 #include "types.h"
-#include "shading.h"   // ShadeTable, IntensityTable, guiShadePercent
 
 #ifndef SGP_PIXEL_DEPTH
 #define SGP_PIXEL_DEPTH 16
@@ -29,6 +28,16 @@ typedef UINT16 PIXEL;
 #endif
 
 #ifdef __cplusplus
+
+// Self-contained externs (defined in shading.cpp, declared extern "C"
+// there) so this header stays lightweight and free of ordering
+// dependencies -- it gets pulled into low-level headers before
+// SGPPaletteEntry/COLORVAL exist. Linkage must match shading.h.
+extern "C" {
+	extern FLOAT  guiShadePercent;        // shading.cpp
+	extern UINT16 ShadeTable[65536];      // shading.cpp (16bpp dest-shade LUT)
+	extern UINT16 IntensityTable[65536];  // shading.cpp (16bpp intensity LUT)
+}
 
 // Drop-shadow / fade darkening of a destination pixel. At 16bpp this is the
 // precomputed 64K ShadeTable lookup; at 32bpp a 2^32 table is impossible so

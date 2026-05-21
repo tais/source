@@ -3,6 +3,7 @@
 
 #include "MemMan.h"
 #include "imgfmt.h"
+#include "pixfmt.h"   // PIXEL / SGP_PIXEL_DEPTH (Phase 6b)
 
 // The HIMAGE module provides a common interface for managing image data. This module
 // includes:
@@ -190,8 +191,8 @@ BOOLEAN GetETRLEImageData( HIMAGE hImage, ETRLEData *pBuffer );
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono);
-UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette );
+PIXEL *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono);
+PIXEL *Create16BPPPalette( SGPPaletteEntry *pPalette );
 UINT16 Get16BPPColor( UINT32 RGBValue );
 UINT32 GetRGBColor( UINT16 Value16BPP );
 
