@@ -49,7 +49,7 @@ extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 //void DropOffItemsInMeduna( UINT8 ubOrderNum );
 
 /*
-// WANNE: Dieser Code wird nicht mehr ausgef�hrt. Es gibt jetzt das PostalService.cpp::DeliverShipment()
+// WANNE: Dieser Code wird nicht mehr ausgeführt. Es gibt jetzt das PostalService.cpp::DeliverShipment()
 // In der Methode DeliverShipment() fehlt eine ganze Menge (PABLO Quests, ...)
 void BobbyRayPurchaseEventCallback( UINT8 ubOrderID )
 {

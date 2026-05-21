@@ -766,7 +766,7 @@ void RenderPersonnelStats( INT32 iId, INT32 iSlot )
 
 // ID -> fortlaufende ID, und nicht die mercID
 // -> bei aktuellen Merc passt es
-// -> bei departed Merc wird die MercId anstatt der fortlaufenden ID �bergeben!!
+// -> bei departed Merc wird die MercId anstatt der fortlaufenden ID übergeben!!
 void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther )
 {
 	// Get the profile id (from profileId or slotId)
@@ -2673,7 +2673,7 @@ void DisplayFaceOfDisplayedMerc( )
 
 		DisplayHighLightBox();
 
-		// Hier d�rfte der Aufruf falsch sein
+		// Hier dürfte der Aufruf falsch sein
 
 		RenderPersonnelFace(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, IsPastMercDead( iCurrentPersonSelectedId ), IsPastMercFired( iCurrentPersonSelectedId ), IsPastMercOther( iCurrentPersonSelectedId ) );
 		DisplayDepartedCharName(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iCurrentPersonSelectedId	) ) );

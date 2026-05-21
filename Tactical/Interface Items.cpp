@@ -12405,7 +12405,7 @@ void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldi
 				if ( gGameExternalOptions.fAdvRepairSystem && sThreshold < 100 )
 				{
 					if( g_lang == i18n::Lang::zh ) {
-						swprintf( pStr, L"%s [%d%��(%d%��)]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
+						swprintf( pStr, L"%s [%d%£¥(%d%£¥)]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
 					ItemNames[ usItem ],
 					sValue,
 					sThreshold,
@@ -12447,7 +12447,7 @@ void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldi
 				else
 				{
 					if( g_lang == i18n::Lang::zh ) {
-						swprintf( pStr, L"%s [%d%��]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
+						swprintf( pStr, L"%s [%d%£¥]\n%s %d\n%s %d\n%s %d (%d)\n%s (%d) %s\n%s %1.1f %s",
 					ItemNames[ usItem ],
 					sValue,
 					gWeaponStatsDesc[ 9 ],		//Accuracy String

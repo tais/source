@@ -878,7 +878,7 @@ void start_server (void)
 		// Read from ja2_mp.ini
 		// ----------------------------
 
-		CIniReader iniReader(JA2MP_INI_FILENAME);	// Wird nur f�r Strings gebraucht
+		CIniReader iniReader(JA2MP_INI_FILENAME);	// Wird nur für Strings gebraucht
 		strncpy(cServerName, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION, JA2MP_SERVER_NAME, "My JA2 Server"), 30 );				
 		strncpy(gKitBag, iniReader.ReadString(JA2MP_INI_INITIAL_SECTION,JA2MP_KIT_BAG, ""), 100);
 		

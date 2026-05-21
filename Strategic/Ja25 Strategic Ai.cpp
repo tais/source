@@ -244,7 +244,7 @@ void InitJa25StrategicAi()
 	
 	gStrategicStatus.ubHighestProgress = CurrentPlayerProgressPercentage();
 
-	//InitJohnKulbaInitialSector(); // wy��czone, skrypt lua
+	//InitJohnKulbaInitialSector(); // wyłączone, skrypt lua
 }
 
 
@@ -372,10 +372,10 @@ void InitJa25InitialEnemiesInSector()
 	//
 	// Set the number of enemies in each of the sectors
 	//
-	//InitNumberOfEnemiesInAboveGroundSectors( ); //wy��czono, skrypt lua
+	//InitNumberOfEnemiesInAboveGroundSectors( ); //wyłączono, skrypt lua
 
 	//Below Ground
-	//InitNumberOfEnemiesInUnderGroundSectors( ); //wy��czono, skrypt lua
+	//InitNumberOfEnemiesInUnderGroundSectors( ); //wyłączono, skrypt lua
 }
 
 void InitJa25UnderGroundSectors()
