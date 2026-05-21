@@ -2067,7 +2067,7 @@ UINT32 CalcMilitiaUpkeep( void )
 			militia_static[i] += MilitiaInSectorOfRank( sMapX, sMapY, i );
 	}
 
-	// Flugente: if indiv�dual militia is on, calculate costs there and use the above as a fallback option
+	// Flugente: if indivídual militia is on, calculate costs there and use the above as a fallback option
 	if ( gGameExternalOptions.fIndividualMilitia )
 	{
 		uiTotalPayment = GetDailyUpkeep_IndividualMilitia( militia_individual[GREEN_MILITIA], militia_individual[REGULAR_MILITIA], militia_individual[ELITE_MILITIA] );

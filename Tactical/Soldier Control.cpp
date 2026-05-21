@@ -5980,7 +5980,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		}
 	}
 	// marke added one 'or' for explosive ammo. variation of: AmmoTypes[this->inv[this->ubAttackingHand ][0]->data.gun.ubGunAmmoType].explosionSize > 1
-	//  extracting attacker�s ammo type
+	//  extracting attacker's ammo type
 	else if ( Item[usWeaponIndex].usItemClass & IC_EXPLOSV || AmmoTypes[ubAttackerID->inv[ubAttackerID->ubAttackingHand][0]->data.gun.ubGunAmmoType].explosionSize > 1 )
 	{
 		INT8 bDeafValue;
