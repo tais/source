@@ -837,6 +837,72 @@ UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 	return( p16BPPPalette );
 }
 
+// ---- 32bpp (ARGB8888) palette/color generators (Phase 6b) -----------------
+// Mirrors the RGB565 versions above but packs full 8-bit-per-channel ARGB
+// with opaque alpha. The internal pixel is 0xAARRGGBB (SDL_PIXELFORMAT_
+// ARGB8888). RGBValue passed by callers is FROMRGB-packed (0x00BBGGRR), so
+// extract via the SGPGet*Value accessors exactly like Get16BPPColor.
+
+UINT32 Get32BPPColor( UINT32 RGBValue )
+{
+	return 0xFF000000u
+	     | ((UINT32)SGPGetRValue( RGBValue ) << 16)
+	     | ((UINT32)SGPGetGValue( RGBValue ) << 8)
+	     |  (UINT32)SGPGetBValue( RGBValue );
+}
+
+UINT32 *Create32BPPPalette( SGPPaletteEntry *pPalette )
+{
+	UINT32 *pal;
+	UINT32 cnt;
+
+	Assert( pPalette != NULL );
+
+	pal = (UINT32 *) MemAlloc( sizeof( UINT32 ) * 256 );
+	for ( cnt = 0; cnt < 256; cnt++ )
+	{
+		pal[ cnt ] = 0xFF000000u
+		           | ((UINT32)pPalette[ cnt ].peRed   << 16)
+		           | ((UINT32)pPalette[ cnt ].peGreen << 8)
+		           |  (UINT32)pPalette[ cnt ].peBlue;
+	}
+	return( pal );
+}
+
+UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono )
+{
+	UINT32 *pal;
+	UINT32 cnt, lumin, rmod, gmod, bmod;
+	UINT8  r, g, b;
+
+	Assert( pPalette != NULL );
+
+	pal = (UINT32 *) MemAlloc( sizeof( UINT32 ) * 256 );
+	for ( cnt = 0; cnt < 256; cnt++ )
+	{
+		if ( mono )
+		{
+			lumin = (pPalette[ cnt ].peRed*299/1000) + (pPalette[ cnt ].peGreen*587/1000) + (pPalette[ cnt ].peBlue*114/1000);
+			rmod = (rscale*lumin)/256;
+			gmod = (gscale*lumin)/256;
+			bmod = (bscale*lumin)/256;
+		}
+		else
+		{
+			rmod = (rscale*pPalette[ cnt ].peRed/256);
+			gmod = (gscale*pPalette[ cnt ].peGreen/256);
+			bmod = (bscale*pPalette[ cnt ].peBlue/256);
+		}
+
+		r = (UINT8)__min(rmod, 255);
+		g = (UINT8)__min(gmod, 255);
+		b = (UINT8)__min(bmod, 255);
+
+		pal[ cnt ] = 0xFF000000u | ((UINT32)r << 16) | ((UINT32)g << 8) | (UINT32)b;
+	}
+	return( pal );
+}
+
 // Convert from RGB to 16 bit value
 UINT16 Get16BPPColor( UINT32 RGBValue )
 {

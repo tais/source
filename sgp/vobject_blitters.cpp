@@ -9,6 +9,7 @@
 	#include "vobject.h"
 	#include "vobject_blitters.h"
 	#include "shading.h"
+	#include "pixfmt.h"   // PIXEL + PixShade/PixIntensity (Phase 6b)
 	#include "sgp_logger.h"
 
 #include <map>

@@ -194,6 +194,11 @@ UINT16 *Create16BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT
 UINT16 *Create16BPPPalette( SGPPaletteEntry *pPalette );
 UINT16 Get16BPPColor( UINT32 RGBValue );
 UINT32 GetRGBColor( UINT16 Value16BPP );
+
+// 32bpp (ARGB8888) equivalents -- Phase 6b RGBA8888 pipeline.
+UINT32 *Create32BPPPaletteShaded( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, UINT32 bscale, BOOLEAN mono);
+UINT32 *Create32BPPPalette( SGPPaletteEntry *pPalette );
+UINT32 Get32BPPColor( UINT32 RGBValue );
 SGPPaletteEntry *ConvertRGBToPaletteEntry(UINT8 sbStart, UINT8 sbEnd, UINT8 *pOldPalette);
 
 extern UINT16 gusAlphaMask;
