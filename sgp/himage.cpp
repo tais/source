@@ -587,7 +587,8 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDes
 {
 	UINT32 uiSrcStart, uiDestStart, uiNumLines, uiLineSize;
 	UINT32 cnt;
-	UINT16 *pDest, *pSrc;
+	PIXEL  *pDest;
+	UINT16 *pSrc;
 
 	Assert( hImage != NULL );
 	Assert( hImage->p16BPPData != NULL );
@@ -609,18 +610,28 @@ BOOLEAN Copy16BPPImageTo16BPPBuffer( HIMAGE hImage, BYTE *pDestBuf, UINT16 usDes
 	CHECKF( usDestWidth >= uiLineSize );
 	CHECKF( usDestHeight >= uiNumLines );
 
-	// Copy line by line
-	pDest = ( UINT16*)pDestBuf + uiDestStart;
+	// Copy line by line. The source is 16bpp RGB565; at 32bpp it must be
+	// expanded per pixel (a raw memcpy would pack two RGB565 pixels into
+	// one ARGB pixel -- halving the width and scrambling colours).
+	pDest = ( PIXEL*)pDestBuf + uiDestStart;
 	pSrc =	hImage->p16BPPData + uiSrcStart;
 
 	for( cnt = 0; cnt < uiNumLines-1; cnt++ )
 	{
+#if SGP_PIXEL_DEPTH == 32
+		for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
+#else
 		memcpy( pDest, pSrc, uiLineSize * 2 );
+#endif
 		pDest += usDestWidth;
 		pSrc	+= hImage->usWidth;
 	}
 	// Do last line
+#if SGP_PIXEL_DEPTH == 32
+	for ( UINT32 i = 0; i < uiLineSize; ++i ) pDest[i] = PixFromColor16( pSrc[i] );
+#else
 	memcpy( pDest, pSrc, uiLineSize * 2 );
+#endif
 
 	return( TRUE );
 
