@@ -6671,15 +6671,128 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 }
 
 
+// Portable (save-format v2) field list for gTacticalStatus. CHAR16
+// zTopMessageString via wstr; SoldierID fields via their UINT16 .i; the
+// scalar-only TacticalTeamType Team[] stays a byte block (deterministic
+// layout on our targets). Replaces the legacy raw-blob save / ReadFieldByField
+// load pair.
+template<class Ar> static void XferTacticalStatus( Ar& ar, TacticalStatusType& s )
+{
+	int i;
+	ar.u32(s.uiFlags);
+	ar.bytes(&s.Team, sizeof(s.Team));
+	ar.u8 (s.ubCurrentTeam);
+	ar.i32(s.sSlideTarget);
+	ar.i16(s.sSlideReason_UNUSED);
+	ar.u32(s.uiTimeSinceMercAIStart);
+	ar.i8 (s.fPanicFlags);
+	ar.i32(s.sPanicTriggerGridNoUnused);
+	ar.i16(s.sHandGrid);
+	ar.u16(s.ubSpottersCalledForBy.i);
+	ar.u16(s.ubTheChosenOne.i);
+	ar.u32(s.uiTimeOfLastInput);
+	ar.u32(s.uiTimeSinceDemoOn);
+	ar.u32(s.uiCountdownToRestart);
+	ar.boolean(s.fGoingToEnterDemo);
+	ar.boolean(s.fNOTDOLASTDEMO);
+	ar.boolean(s.fMultiplayer);
+	for (i = 0; i < NUM_CIV_GROUPS; ++i) ar.boolean(s.fCivGroupHostile[i]);
+	ar.u8 (s.ubLastBattleSectorX);
+	ar.u8 (s.ubLastBattleSectorY);
+	ar.boolean(s.fLastBattleWon);
+	ar.i8 (s.bOriginalSizeOfEnemyForce);
+	ar.i8 (s.bPanicTriggerIsAlarmUnused);
+	ar.boolean(s.fVirginSector);
+	ar.boolean(s.fEnemyInSector);
+	ar.boolean(s.fInterruptOccurred);
+	ar.i8 (s.bRealtimeSpeed);
+	ar.u8 (s.ubEnemyIntention);
+	ar.u8 (s.ubEnemyIntendedRetreatDirection);
+	ar.u16(s.ubEnemySightingOnTheirTurnEnemyID.i);
+	ar.u16(s.ubEnemySightingOnTheirTurnPlayerID.i);
+	ar.boolean(s.fEnemySightingOnTheirTurn);
+	ar.boolean(s.fAutoBandageMode);
+	ar.u8 (s.ubAttackBusyCount);
+	ar.i8 (s.bNumEnemiesFoughtInBattleUnused);
+	ar.u16(s.ubEngagedInConvFromActionMercID);
+	ar.u16(s.usTactialTurnLimitCounter);
+	ar.boolean(s.fInTopMessage);
+	ar.u8 (s.ubTopMessageType);
+	ar.wstr(s.zTopMessageString, 20);
+	ar.u16(s.usTactialTurnLimitMax);
+	ar.u32(s.uiTactialTurnLimitClock);
+	ar.boolean(s.fTactialTurnLimitStartedBeep);
+	ar.i8 (s.bBoxingState);
+	ar.i8 (s.bConsNumTurnsNotSeen);
+	ar.u8 (s.ubArmyGuysKilled);
+	for (i = 0; i < NUM_PANIC_TRIGGERS; ++i) ar.i32(s.sPanicTriggerGridNo[i]);
+	for (i = 0; i < NUM_PANIC_TRIGGERS; ++i) ar.i8 (s.bPanicTriggerIsAlarm[i]);
+	for (i = 0; i < NUM_PANIC_TRIGGERS; ++i) ar.u8 (s.ubPanicTolerance[i]);
+	ar.boolean(s.fAtLeastOneGuyOnMultiSelect);
+	ar.boolean(s.fSaidCreatureFlavourQuote);
+	ar.boolean(s.fHaveSeenCreature);
+	ar.boolean(s.fKilledEnemyOnAttack);
+	ar.u16(s.ubEnemyKilledOnAttack);
+	ar.i8 (s.bEnemyKilledOnAttackLevel);
+	ar.u16(s.ubEnemyKilledOnAttackLocation);
+	ar.boolean(s.fItemsSeenOnAttack);
+	ar.boolean(s.ubItemsSeenOnAttackSoldier);
+	ar.boolean(s.fBeenInCombatOnce);
+	ar.boolean(s.fSaidCreatureSmellQuote);
+	ar.u32(s.usItemsSeenOnAttackGridNo);
+	ar.boolean(s.fLockItemLocators);
+	ar.u8 (s.ubLastQuoteSaid);
+	ar.u8 (s.ubLastQuoteProfileNUm);
+	ar.boolean(s.fCantGetThrough);
+	ar.i32(s.sCantGetThroughGridNo);
+	ar.i32(s.sCantGetThroughSoldierGridNo);
+	ar.u16(s.ubCantGetThroughID.i);
+	ar.boolean(s.fDidGameJustStart);
+	ar.boolean(s.fStatChangeCheatOn);
+	ar.u8 (s.ubLastRequesterTargetID);
+	ar.boolean(s.fGoodToAllowCrows);
+	ar.u8 (s.ubNumCrowsPossible);
+	ar.u32(s.uiTimeCounterForGiveItemSrc);
+	ar.boolean(s.fUnLockUIAfterHiddenInterrupt);
+	for (i = 0; i < MAXTEAMS; ++i) ar.i8(s.bNumFoughtInBattle[i]);
+	ar.u32(s.uiDecayBloodLastUpdate);
+	ar.u32(s.uiTimeSinceLastInTactical);
+	ar.boolean(s.fHasAGameBeenStarted);
+	ar.i8 (s.bConsNumTurnsWeHaventSeenButEnemyDoes);
+	ar.boolean(s.fSomeoneHit);
+	ar.u32(s.uiTimeSinceLastOpplistDecay);
+	ar.i8 (s.bMercArrivingQuoteBeingUsed);
+	ar.u16(s.ubEnemyKilledOnAttackKiller);
+	ar.boolean(s.fCountingDownForGuideDescription);
+	ar.i8 (s.bGuideDescriptionCountDown);
+	ar.u8 (s.ubGuideDescriptionToUse);
+	ar.i8 (s.bGuideDescriptionSectorX);
+	ar.i8 (s.bGuideDescriptionSectorY);
+	ar.i8 (s.fEnemyFlags);
+	ar.boolean(s.fAutoBandagePending);
+	ar.boolean(s.fHasEnteredCombatModeSinceEntering);
+	ar.boolean(s.fDontAddNewCrows);
+	ar.u8 (s.ubMorePadding);
+	ar.u16(s.sCreatureTenseQuoteDelay);
+	ar.u32(s.uiCreatureTenseQuoteLastUpdate);
+	ar.u16(s.ubLastRequesterSurgeryTargetID.i);
+	ar.u8 (s.ubInterruptPending);
+	ar.boolean(s.ubDisablePlayerInterrupts);
+}
+
 BOOLEAN SaveTacticalStatusToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
 
-	//write the gTacticalStatus to the saved game file
-	FileWrite( hFile, &gTacticalStatus, sizeof( TacticalStatusType ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( TacticalStatusType ) )
+	//write the gTacticalStatus to the saved game file (portable v2)
 	{
-		return(FALSE);
+		SaveWriter w(hFile);
+		SaveFieldWriter ar(w);
+		XferTacticalStatus(ar, gTacticalStatus);
+		if( !w.good() )
+		{
+			return(FALSE);
+		}
 	}
 
 	//
@@ -6723,133 +6836,15 @@ void FailedLoadingGameCallBack( UINT8 bExitValue );
 BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesRead;
-	INT32	numBytesRead = 0;
-	UINT8	filler = 0;
 
-//	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
-//		savedTeamSettings[idx] = gTacticalStatus.Team[idx];
-//	}
-
-	//Read the gTacticalStatus to the saved game file
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiFlags, sizeof(gTacticalStatus.uiFlags), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.Team, sizeof(gTacticalStatus.Team), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubCurrentTeam, sizeof(gTacticalStatus.ubCurrentTeam), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sSlideTarget, sizeof(gTacticalStatus.sSlideTarget), sizeof(INT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sSlideReason_UNUSED, sizeof(gTacticalStatus.sSlideReason_UNUSED), sizeof(INT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeSinceMercAIStart, sizeof(gTacticalStatus.uiTimeSinceMercAIStart), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fPanicFlags, sizeof(gTacticalStatus.fPanicFlags), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sPanicTriggerGridNoUnused, sizeof(gTacticalStatus.sPanicTriggerGridNoUnused), sizeof(INT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sHandGrid, sizeof(gTacticalStatus.sHandGrid), sizeof(INT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubSpottersCalledForBy, sizeof(gTacticalStatus.ubSpottersCalledForBy), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubTheChosenOne, sizeof(gTacticalStatus.ubTheChosenOne), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeOfLastInput, sizeof(gTacticalStatus.uiTimeOfLastInput), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeSinceDemoOn, sizeof(gTacticalStatus.uiTimeSinceDemoOn), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiCountdownToRestart, sizeof(gTacticalStatus.uiCountdownToRestart), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fGoingToEnterDemo, sizeof(gTacticalStatus.fGoingToEnterDemo), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fNOTDOLASTDEMO, sizeof(gTacticalStatus.fNOTDOLASTDEMO), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fMultiplayer, sizeof(gTacticalStatus.fMultiplayer), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fCivGroupHostile, sizeof(gTacticalStatus.fCivGroupHostile), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastBattleSectorX, sizeof(gTacticalStatus.ubLastBattleSectorX), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastBattleSectorY, sizeof(gTacticalStatus.ubLastBattleSectorY), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fLastBattleWon, sizeof(gTacticalStatus.fLastBattleWon), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bOriginalSizeOfEnemyForce, sizeof(gTacticalStatus.bOriginalSizeOfEnemyForce), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bPanicTriggerIsAlarmUnused, sizeof(gTacticalStatus.bPanicTriggerIsAlarmUnused), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fVirginSector, sizeof(gTacticalStatus.fVirginSector), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fEnemyInSector, sizeof(gTacticalStatus.fEnemyInSector), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fInterruptOccurred, sizeof(gTacticalStatus.fInterruptOccurred), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bRealtimeSpeed, sizeof(gTacticalStatus.bRealtimeSpeed), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemyIntention, sizeof(gTacticalStatus.ubEnemyIntention), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemyIntendedRetreatDirection, sizeof(gTacticalStatus.ubEnemyIntendedRetreatDirection), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID, sizeof(gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemySightingOnTheirTurnPlayerID, sizeof(gTacticalStatus.ubEnemySightingOnTheirTurnPlayerID), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fEnemySightingOnTheirTurn, sizeof(gTacticalStatus.fEnemySightingOnTheirTurn), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fAutoBandageMode, sizeof(gTacticalStatus.fAutoBandageMode), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubAttackBusyCount, sizeof(gTacticalStatus.ubAttackBusyCount), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bNumEnemiesFoughtInBattleUnused, sizeof(gTacticalStatus.bNumEnemiesFoughtInBattleUnused), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEngagedInConvFromActionMercID, sizeof(gTacticalStatus.ubEngagedInConvFromActionMercID), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.usTactialTurnLimitCounter, sizeof(gTacticalStatus.usTactialTurnLimitCounter), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fInTopMessage, sizeof(gTacticalStatus.fInTopMessage), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubTopMessageType, sizeof(gTacticalStatus.ubTopMessageType), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.zTopMessageString, sizeof(gTacticalStatus.zTopMessageString), sizeof(CHAR16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.usTactialTurnLimitMax, sizeof(gTacticalStatus.usTactialTurnLimitMax), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTactialTurnLimitClock, sizeof(gTacticalStatus.uiTactialTurnLimitClock), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fTactialTurnLimitStartedBeep, sizeof(gTacticalStatus.fTactialTurnLimitStartedBeep), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bBoxingState, sizeof(gTacticalStatus.bBoxingState), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bConsNumTurnsNotSeen, sizeof(gTacticalStatus.bConsNumTurnsNotSeen), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubArmyGuysKilled, sizeof(gTacticalStatus.ubArmyGuysKilled), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sPanicTriggerGridNo, sizeof(gTacticalStatus.sPanicTriggerGridNo), sizeof(INT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bPanicTriggerIsAlarm, sizeof(gTacticalStatus.bPanicTriggerIsAlarm), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubPanicTolerance, sizeof(gTacticalStatus.ubPanicTolerance), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fAtLeastOneGuyOnMultiSelect, sizeof(gTacticalStatus.fAtLeastOneGuyOnMultiSelect), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fSaidCreatureFlavourQuote, sizeof(gTacticalStatus.fSaidCreatureFlavourQuote), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fHaveSeenCreature, sizeof(gTacticalStatus.fHaveSeenCreature), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fKilledEnemyOnAttack, sizeof(gTacticalStatus.fKilledEnemyOnAttack), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemyKilledOnAttack, sizeof(gTacticalStatus.ubEnemyKilledOnAttack), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bEnemyKilledOnAttackLevel, sizeof(gTacticalStatus.bEnemyKilledOnAttackLevel), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemyKilledOnAttackLocation, sizeof(gTacticalStatus.ubEnemyKilledOnAttackLocation), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fItemsSeenOnAttack, sizeof(gTacticalStatus.fItemsSeenOnAttack), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubItemsSeenOnAttackSoldier, sizeof(gTacticalStatus.ubItemsSeenOnAttackSoldier), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fBeenInCombatOnce, sizeof(gTacticalStatus.fBeenInCombatOnce), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fSaidCreatureSmellQuote, sizeof(gTacticalStatus.fSaidCreatureSmellQuote), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.usItemsSeenOnAttackGridNo, sizeof(gTacticalStatus.usItemsSeenOnAttackGridNo), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fLockItemLocators, sizeof(gTacticalStatus.fLockItemLocators), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastQuoteSaid, sizeof(gTacticalStatus.ubLastQuoteSaid), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastQuoteProfileNUm, sizeof(gTacticalStatus.ubLastQuoteProfileNUm), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fCantGetThrough, sizeof(gTacticalStatus.fCantGetThrough), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sCantGetThroughGridNo, sizeof(gTacticalStatus.sCantGetThroughGridNo), sizeof(INT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sCantGetThroughSoldierGridNo, sizeof(gTacticalStatus.sCantGetThroughSoldierGridNo), sizeof(INT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubCantGetThroughID, sizeof(gTacticalStatus.ubCantGetThroughID), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fDidGameJustStart, sizeof(gTacticalStatus.fDidGameJustStart), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fStatChangeCheatOn, sizeof(gTacticalStatus.fStatChangeCheatOn), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastRequesterTargetID, sizeof(gTacticalStatus.ubLastRequesterTargetID), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fGoodToAllowCrows, sizeof(gTacticalStatus.fGoodToAllowCrows), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubNumCrowsPossible, sizeof(gTacticalStatus.ubNumCrowsPossible), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeCounterForGiveItemSrc, sizeof(gTacticalStatus.uiTimeCounterForGiveItemSrc), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fUnLockUIAfterHiddenInterrupt, sizeof(gTacticalStatus.fUnLockUIAfterHiddenInterrupt), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bNumFoughtInBattle, sizeof(gTacticalStatus.bNumFoughtInBattle), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiDecayBloodLastUpdate, sizeof(gTacticalStatus.uiDecayBloodLastUpdate), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeSinceLastInTactical, sizeof(gTacticalStatus.uiTimeSinceLastInTactical), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fHasAGameBeenStarted, sizeof(gTacticalStatus.fHasAGameBeenStarted), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bConsNumTurnsWeHaventSeenButEnemyDoes, sizeof(gTacticalStatus.bConsNumTurnsWeHaventSeenButEnemyDoes), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fSomeoneHit, sizeof(gTacticalStatus.fSomeoneHit), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiTimeSinceLastOpplistDecay, sizeof(gTacticalStatus.uiTimeSinceLastOpplistDecay), sizeof(UINT32), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bMercArrivingQuoteBeingUsed, sizeof(gTacticalStatus.bMercArrivingQuoteBeingUsed), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubEnemyKilledOnAttackKiller, sizeof(gTacticalStatus.ubEnemyKilledOnAttackKiller), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fCountingDownForGuideDescription, sizeof(gTacticalStatus.fCountingDownForGuideDescription), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bGuideDescriptionCountDown, sizeof(gTacticalStatus.bGuideDescriptionCountDown), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubGuideDescriptionToUse, sizeof(gTacticalStatus.ubGuideDescriptionToUse), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bGuideDescriptionSectorX, sizeof(gTacticalStatus.bGuideDescriptionSectorX), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.bGuideDescriptionSectorY, sizeof(gTacticalStatus.bGuideDescriptionSectorY), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fEnemyFlags, sizeof(gTacticalStatus.fEnemyFlags), sizeof(INT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fAutoBandagePending, sizeof(gTacticalStatus. fAutoBandagePending), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fHasEnteredCombatModeSinceEntering, sizeof(gTacticalStatus. fHasEnteredCombatModeSinceEntering), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.fDontAddNewCrows, sizeof(gTacticalStatus. fDontAddNewCrows), sizeof(BOOLEAN), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubMorePadding, sizeof(gTacticalStatus.ubMorePadding), sizeof(UINT8), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.sCreatureTenseQuoteDelay, sizeof(gTacticalStatus.sCreatureTenseQuoteDelay), sizeof(UINT16), numBytesRead);
-	numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.uiCreatureTenseQuoteLastUpdate, sizeof(gTacticalStatus.uiCreatureTenseQuoteLastUpdate), sizeof(UINT32), numBytesRead);
-	if ( guiCurrentSaveGameVersion >= BUGFIX_NPC_DATA_FOR_BIG_MAPS )
+	//Read the gTacticalStatus from the saved game file (portable v2)
 	{
-		numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubLastRequesterSurgeryTargetID, sizeof(gTacticalStatus.ubLastRequesterSurgeryTargetID), sizeof(UINT16), numBytesRead);
-		if ( guiCurrentSaveGameVersion >= IMPROVED_INTERRUPT_SYSTEM )
-       {
-			numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubInterruptPending, sizeof(gTacticalStatus.ubInterruptPending), sizeof(UINT8), numBytesRead);
-           numBytesRead = ReadFieldByField(hFile, &gTacticalStatus.ubDisablePlayerInterrupts, sizeof(gTacticalStatus.ubDisablePlayerInterrupts), sizeof(BOOLEAN), numBytesRead);
-       }
-		while( (numBytesRead%4) != 0 )	// This is to make sure the total read is of DWORD length
-			numBytesRead = ReadFieldByField(hFile, &filler, sizeof(filler), sizeof(UINT8), numBytesRead);
-	}
-	else
-	{
-		numBytesRead++;	//&gTacticalStatus.ubLastRequesterSurgeryTargetID added with BUGFIX_NPC_DATA_FOR_BIG_MAPS
-		numBytesRead++;	//&gTacticalStatus.ubInterruptPending added with IMPROVED_INTERRUPT_SYSTEM
-       numBytesRead++; //&gTacticalStatus.ubDisablePlayerInterrupts
-		while( (numBytesRead%4) != 0 )	// This is to make sure the total read is of DWORD length
-			numBytesRead++;
-	}
-	//FileRead( hFile, &gTacticalStatus, sizeof( TacticalStatusType ), &uiNumBytesRead );
-	//if( uiNumBytesRead != sizeof( TacticalStatusType ) ) {
-	if( numBytesRead != sizeof( TacticalStatusType ) ) {
-		return(FALSE);
+		SaveReader r(hFile);
+		SaveFieldReader ar(r);
+		XferTacticalStatus(ar, gTacticalStatus);
+		if( !r.good() ) {
+			return(FALSE);
+		}
 	}
 
 //	for (unsigned idx=0; idx <= MAXTEAMS; ++idx) {
