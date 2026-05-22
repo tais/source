@@ -42,12 +42,17 @@ static UINT16 sdl_to_vk(SDL_Scancode sc, SDL_Keycode key)
 		case SDL_SCANCODE_HOME:      return 252;  // HOME
 		case SDL_SCANCODE_UP:        return 253;  // UPARROW
 		case SDL_SCANCODE_PAGEUP:    return 254;  // PGUP
-		case SDL_SCANCODE_LSHIFT:    return 0xA0;
-		case SDL_SCANCODE_RSHIFT:    return 0xA1;
-		case SDL_SCANCODE_LCTRL:     return 0xA2;
-		case SDL_SCANCODE_RCTRL:     return 0xA3;
-		case SDL_SCANCODE_LALT:      return 0xA4;
-		case SDL_SCANCODE_RALT:      return 0xA5;
+		// Modifier keys: JA2 polls _KeyDown(SHIFT/CTRL/ALT), and those
+		// english.h constants are 16/17/18 (== generic VK_SHIFT/CONTROL/
+		// MENU) -- NOT the L/R-specific VK_LSHIFT (0xA0) etc. Returning
+		// 0xA0+ meant gfKeyState[16/17/18] was never set, so _KeyDown(CTRL)
+		// and friends always read FALSE. Map both sides to 16/17/18.
+		case SDL_SCANCODE_LSHIFT:    return 16;   // SHIFT
+		case SDL_SCANCODE_RSHIFT:    return 16;
+		case SDL_SCANCODE_LCTRL:     return 17;   // CTRL
+		case SDL_SCANCODE_RCTRL:     return 17;
+		case SDL_SCANCODE_LALT:      return 18;   // ALT
+		case SDL_SCANCODE_RALT:      return 18;
 		case SDL_SCANCODE_F1:        return 0x70;
 		case SDL_SCANCODE_F2:        return 0x71;
 		case SDL_SCANCODE_F3:        return 0x72;
@@ -78,9 +83,51 @@ static UINT32 pack_xy(int x, int y)
 	return (UINT32)((y & 0xFFFF) << 16) | (UINT32)(x & 0xFFFF);
 }
 
+// JA2's tactical handlers switch on the case-adjusted character: an
+// unshifted letter is 'g', a shifted one is 'G' (the original Win32 path
+// did this via gsKeyTranslationTable). sdl_to_vk returns the *uppercase*
+// VK (which we keep for gfKeyState / _KeyDown polling), so for the queued
+// event we lowercase letters unless Shift (xor Caps Lock) is active.
+// Without this every letter arrived uppercase, so all lowercase-letter
+// shortcuts (e.g. the Ctrl+G cheat-enable prompt, which lives in case 'g')
+// were unreachable.
+static UINT16 caseAdjustedParam(UINT16 vk, SDL_Keymod mod)
+{
+	if (vk >= 'A' && vk <= 'Z') {
+		const bool shift = (mod & SDL_KMOD_SHIFT) != 0;
+		const bool caps  = (mod & SDL_KMOD_CAPS)  != 0;
+		if (shift == caps) return (UINT16)(vk + 32);  // lowercase
+	}
+	return vk;
+}
+
+// Modifier-state globals (defined in input.cpp). The original Win32
+// KeyDown() kept these in sync; the SDL3 path updates gfKeyState directly
+// and never called KeyDown, so they stayed FALSE -- which meant every
+// queued event got usKeyState 0 and ALL Ctrl/Alt/Shift shortcuts (cheat
+// keys, and lots of normal gameplay combos) silently lost their modifier.
+// We refresh them from SDL's live modifier state on every event below.
+extern UINT16 gfShiftState;
+extern UINT16 gfCtrlState;
+extern UINT16 gfAltState;
+
 bool SgpHandleSDLEvent(const SDL_Event* ev)
 {
 	if (!ev) return false;
+
+	// Keep the JA2 modifier-state globals current for QueueEvent's
+	// usKeyState (= gfShiftState | gfCtrlState | gfAltState). Driven off
+	// SDL_GetModState() so it covers keyboard *and* mouse events (e.g.
+	// Ctrl+click). On macOS SDL maps Control->KMOD_CTRL and Option->
+	// KMOD_ALT, matching JA2's Ctrl/Alt; Command (KMOD_GUI) is left for
+	// the Cmd+Q quit handling only.
+	{
+		const SDL_Keymod mod = SDL_GetModState();
+		gfShiftState = (mod & SDL_KMOD_SHIFT) ? SHIFT_DOWN : 0;
+		gfCtrlState  = (mod & SDL_KMOD_CTRL)  ? CTRL_DOWN  : 0;
+		gfAltState   = (mod & SDL_KMOD_ALT)   ? ALT_DOWN   : 0;
+	}
+
 	switch (ev->type) {
 	case SDL_EVENT_QUIT:
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
@@ -112,7 +159,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 			// path that pulls in the video subsystem. The queue +
 			// _KeyDown(vk) callers see the same state either way.
 			gfKeyState[vk & 0xFF] = TRUE;
-			QueueEvent(KEY_DOWN, vk, 0);
+			QueueEvent(KEY_DOWN, caseAdjustedParam(vk, ev->key.mod), 0);
 		}
 		break;
 	}
@@ -120,7 +167,7 @@ bool SgpHandleSDLEvent(const SDL_Event* ev)
 		UINT16 vk = sdl_to_vk(ev->key.scancode, ev->key.key);
 		if (vk) {
 			gfKeyState[vk & 0xFF] = FALSE;
-			QueueEvent(KEY_UP, vk, 0);
+			QueueEvent(KEY_UP, caseAdjustedParam(vk, ev->key.mod), 0);
 		}
 		break;
 	}
