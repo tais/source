@@ -154,8 +154,8 @@ BOOLEAN InitializeVideoManager(void)
 	// window whose renderer targets the full *physical* pixel backing
 	// (e.g. 1280x960 behind a 640x480 logical window at 2x) instead of
 	// letting the OS compositor blur a 640x480 image up to the panel.
-	// Combined with the integer logical presentation set below, this is
-	// what makes the bitmap glyphs land on real pixels and read crisp.
+	// Combined with the logical presentation set below, this is what
+	// makes the bitmap glyphs land on real pixels and read crisp.
 	gWindow = SDL_CreateWindow(
 		"Jagged Alliance 2 1.13 (SDL3 port)",
 		SCREEN_WIDTH, SCREEN_HEIGHT,
@@ -164,6 +164,11 @@ BOOLEAN InitializeVideoManager(void)
 		std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		return FALSE;
 	}
+	// The whole UI is laid out for 640x480; never let the window shrink
+	// below that. Besides being sensible, it stops the integer/letterbox
+	// scaler from hitting a degenerate (<1x) state mid-resize, which left
+	// SDL's render-command queue half-built and tripped an assertion.
+	SDL_SetWindowMinimumSize(gWindow, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	gRenderer = SDL_CreateRenderer(gWindow, nullptr);
 	if (!gRenderer) {
@@ -171,16 +176,21 @@ BOOLEAN InitializeVideoManager(void)
 		return FALSE;
 	}
 
-	// Establish a fixed 640x480 (logical) coordinate space and present it
-	// scaled by whole-number multiples only, letterboxed when the window
-	// isn't an exact multiple. INTEGER_SCALE keeps every source pixel an
-	// equal-sized block of destination pixels, so glyph stems stay a
-	// uniform width instead of the uneven 2px/3px jitter you get from
-	// fractional NEAREST stretching -- crisp text, original art untouched.
+	// Establish a fixed 640x480 (logical) coordinate space. Default mode
+	// is LETTERBOX: aspect-correct, scales smoothly as the window
+	// resizes, crisp at the native integer multiples (e.g. exact 2x on a
+	// 2x Retina panel). JA2_PIXEL_PERFECT=1 switches to INTEGER_SCALE for
+	// pixel-perfect output at the cost of stepwise resizing + black bars.
+	// Either way the texture's NEAREST scale mode (set below) means no
+	// colour blending -- pixel values reach the screen unchanged.
 	// Mouse coordinates are mapped back into this logical space in the
 	// event pump via SDL_ConvertEventToRenderCoordinates.
+	const bool pixelPerfect = (SDL_getenv("JA2_PIXEL_PERFECT") != nullptr);
+	const SDL_RendererLogicalPresentation presMode =
+		pixelPerfect ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
+		             : SDL_LOGICAL_PRESENTATION_LETTERBOX;
 	if (!SDL_SetRenderLogicalPresentation(gRenderer, SCREEN_WIDTH, SCREEN_HEIGHT,
-	                                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)) {
+	                                      presMode)) {
 		std::fprintf(stderr, "[video] SDL_SetRenderLogicalPresentation failed: %s\n",
 		             SDL_GetError());
 	}
@@ -479,6 +489,17 @@ static void RestoreCursorPixels()
 void RefreshScreen(void* /*dummy*/)
 {
 	if (!gRenderer || !gFrameTex || !gFrameBuffer) return;
+
+	// Don't render while minimized or when the drawable has collapsed to
+	// zero (can happen transiently mid-resize on macOS). A render pass
+	// against a 0-sized target fails partway and leaves SDL's
+	// render-command queue inconsistent, which asserts on the next frame.
+	if (SDL_GetWindowFlags(gWindow) & SDL_WINDOW_MINIMIZED) return;
+	{
+		int ow = 0, oh = 0;
+		SDL_GetCurrentRenderOutputSize(gRenderer, &ow, &oh);
+		if (ow <= 0 || oh <= 0) return;
+	}
 
 	// macOS sometimes lets the OS arrow reappear (after window focus
 	// changes, etc.). Re-hide each frame so it stays consistently off
