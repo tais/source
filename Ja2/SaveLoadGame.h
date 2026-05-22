@@ -79,6 +79,11 @@ BOOLEAN LoadSavedGame( int ubSavedGameID );
 BOOLEAN SaveSaveGameHeaderToFile( HWFILE hFile, SAVED_GAME_HEADER& h );
 BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h );
 
+// Portable (save-format v2) PathSt node (path data only; links re-built on load).
+struct path;
+BOOLEAN SavePathNodeToFile( HWFILE hFile, struct path* p );
+BOOLEAN LoadPathNodeFromFile( HWFILE hFile, struct path* p );
+
 BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo );
 
 BOOLEAN		SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile );

@@ -2476,6 +2476,28 @@ BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h )
 	return r.good() ? TRUE : FALSE;
 }
 
+// Portable (save-format v2) PathSt node. struct path's pNext/pPrev are runtime
+// linked-list pointers, re-linked by every loader, so only the path data
+// (uiSectorId/uiEta/fSpeed) is persisted. Shared by the vehicle, militia and
+// soldier merc-path save/load loops (replacing FileWrite/Read(&node, sizeof)).
+BOOLEAN SavePathNodeToFile( HWFILE hFile, PathSt* p )
+{
+	SaveWriter w(hFile);
+	w.u32(p->uiSectorId);
+	w.u32(p->uiEta);
+	BOOLEAN fSpeed = p->fSpeed; w.boolean(fSpeed);
+	return w.good() ? TRUE : FALSE;
+}
+
+BOOLEAN LoadPathNodeFromFile( HWFILE hFile, PathSt* p )
+{
+	SaveReader r(hFile);
+	p->uiSectorId = r.u32();
+	p->uiEta      = r.u32();
+	p->fSpeed     = r.boolean();
+	return r.good() ? TRUE : FALSE;
+}
+
 // WDS - Automatically try to save when an assertion failure occurs
 extern bool alreadySaving = false;
 extern bool bHideTopMessage;
@@ -7299,9 +7321,8 @@ BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 		//loop through nodes and save all the nodes
 	while( pTempPath )
 	{
-		//Save the number of the nodes
-		FileWrite( hFile, pTempPath, sizeof( PathSt ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( PathSt ) )
+		//Save the node (path data only; links rebuilt on load)
+		if( !SavePathNodeToFile( hFile, pTempPath ) )
 		{
 			return(FALSE);
 		}
@@ -7362,9 +7383,8 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 
 		memset( pTemp, 0 , sizeof( PathSt ) );
 		
-		//Load the node
-		FileRead( hFile, pTemp, sizeof( PathSt ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( PathSt ) )
+		//Load the node (path data only; links rebuilt below)
+		if( !LoadPathNodeFromFile( hFile, pTemp ) )
 		{
 			MemFree( pTemp);
 			pTempPath = MoveToBeginningOfPathList( pTempPath );
