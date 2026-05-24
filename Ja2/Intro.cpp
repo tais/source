@@ -196,6 +196,12 @@ enum
 BOOLEAN		gfIntroScreenEntry;
 BOOLEAN		gfIntroScreenExit;
 
+// Edge-detect state for the click-to-skip-flic handling (see
+// GetIntroScreenUserInput). Reset on EnterIntroScreen to the current button
+// state so a button still held from the "new game" click doesn't skip the
+// very first flic.
+static BOOLEAN	gfIntroSkipButtonHeld = FALSE;
+
 UINT32		guiIntroExitScreen = INTRO_SCREEN;
 
 
@@ -366,6 +372,10 @@ Test = 0;
 
 	ClearMainMenu();
 
+	// Seed the skip edge-detector with the current button state so a press
+	// still held from entering the intro isn't treated as a fresh skip.
+	gfIntroSkipButtonHeld = ( gfLeftButtonState || gfRightButtonState );
+
 	SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
 
 	// Don't play music....
@@ -505,12 +515,19 @@ void GetIntroScreenUserInput()
 		}
 	}
 
-	// if the user presses either mouse button
-	if( gfLeftButtonState || gfRightButtonState )
+	// Advance to the next flic on a button PRESS (rising edge), not for
+	// every frame the button stays down. The old level-triggered check fired
+	// once per frame while held, so a single click skipped as many flics as
+	// there were frames during the press -- frame-rate (hence platform)
+	// dependent: macOS skipped ~one flic, Windows skipped several and ran off
+	// the end of the intro straight into the next screen, which crashed.
+	const BOOLEAN fIntroSkipNow = ( gfLeftButtonState || gfRightButtonState );
+	if( fIntroSkipNow && !gfIntroSkipButtonHeld )
 	{
 		//advance to the next flic
 		s_VP.stopVideo();
 	}
+	gfIntroSkipButtonHeld = fIntroSkipNow;
 }
 
 
