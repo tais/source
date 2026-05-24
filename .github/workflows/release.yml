@@ -119,7 +119,7 @@ jobs:
             macos) RPATH_ARGS=(-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=@loader_path') ;;
           esac
           cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DLanguages=ENGLISH \
             "-DApplications=JA2;JA2UB;JA2MAPEDITOR" \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
@@ -156,6 +156,8 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($app in 'JA2','JA2UB','JA2MAPEDITOR') {
             Copy-Item "build/$($app)_ENGLISH.exe" dist/
+            # RelWithDebInfo emits a PDB per app -- ship it so lldb/WinDbg can symbolize
+            if (Test-Path "build/$($app)_ENGLISH.pdb") { Copy-Item "build/$($app)_ENGLISH.pdb" dist/ }
           }
           Copy-Item build/_deps/sdl3-build/SDL3.dll dist/
           Copy-Item build/_deps/sdl3_mixer-build/SDL3_mixer.dll dist/
