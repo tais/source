@@ -196,6 +196,12 @@ enum
 BOOLEAN		gfIntroScreenEntry;
 BOOLEAN		gfIntroScreenExit;
 
+// Edge-detect state for the click-to-skip-flic handling (see
+// GetIntroScreenUserInput). Reset on EnterIntroScreen to the current button
+// state so a button still held from the "new game" click doesn't skip the
+// very first flic.
+static BOOLEAN	gfIntroSkipButtonHeld = FALSE;
+
 UINT32		guiIntroExitScreen = INTRO_SCREEN;
 
 
@@ -366,6 +372,10 @@ Test = 0;
 
 	ClearMainMenu();
 
+	// Seed the skip edge-detector with the current button state so a press
+	// still held from entering the intro isn't treated as a fresh skip.
+	gfIntroSkipButtonHeld = ( gfLeftButtonState || gfRightButtonState );
+
 	SetCurrentCursorFromDatabase( VIDEO_NO_CURSOR );
 
 	// Don't play music....
@@ -505,12 +515,20 @@ void GetIntroScreenUserInput()
 		}
 	}
 
-	// if the user presses either mouse button
-	if( gfLeftButtonState || gfRightButtonState )
+	// One button PRESS skips the WHOLE intro: stop the current flic and exit
+	// the intro screen, rather than advancing flic-by-flic. Edge-triggered so a
+	// single press fires once -- the old per-frame level test stopped a flic
+	// every frame the button was held, churning through every flic + its SDL
+	// audio stream in a few frames (frame-rate / platform dependent), which
+	// crashed on Windows. Exiting straight away also closes only the current
+	// flic (no rapid open/close storm), so it's clean on every platform.
+	const BOOLEAN fIntroSkipNow = ( gfLeftButtonState || gfRightButtonState );
+	if( fIntroSkipNow && !gfIntroSkipButtonHeld )
 	{
-		//advance to the next flic
 		s_VP.stopVideo();
+		PrepareToExitIntroScreen();
 	}
+	gfIntroSkipButtonHeld = fIntroSkipNow;
 }
 
 
