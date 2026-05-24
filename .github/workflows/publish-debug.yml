@@ -1,0 +1,35 @@
+name: publish-debug
+
+# One-off helper: copy an already-built Windows artifact from a release.yml run
+# onto the `debug-master` pre-release, entirely on a GitHub runner (artifact ->
+# release transfer stays inside GitHub's network -- avoids flaky local CDN
+# downloads). Dispatch with the source run id.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'release.yml run id that produced the ja2-sdl3-windows artifact'
+        required: true
+      asset_name:
+        description: 'asset filename to publish (must match the release asset)'
+        required: false
+        default: 'ja2-sdl3-windows-debug-master-1.zip'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact + attach to debug-master prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          gh run download "${{ github.event.inputs.run_id }}" \
+            -n ja2-sdl3-windows -R "${{ github.repository }}" -D dl
+          mv dl/*.zip "${{ github.event.inputs.asset_name }}"
+          gh release upload debug-master "${{ github.event.inputs.asset_name }}" \
+            --clobber -R "${{ github.repository }}"
