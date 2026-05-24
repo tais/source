@@ -3802,6 +3802,10 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 	{
 		pObj = FindAttachment_GrenadeLauncher(&pSoldier->inv[bWeaponIn]);
 		AssertMsg(pObj, "FindAmmoToReload: could not find attached grenade launcher.");
+		// AssertMsg is a no-op in release; FindAttachment_* can return NULL if the
+		// GL weapon-mode desynced from the actual attachment. Bail rather than deref.
+		if ( pObj == NULL )
+			return( NO_SLOT );
 	}
 	else
 	{
