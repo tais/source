@@ -12668,7 +12668,7 @@ INT16 GetWornCamo( SOLDIERTYPE * pSoldier )
 			if ( pSoldier->inv[bLoop].exists() )
 			{
 				ttl += GetCamoBonus(&pSoldier->inv[bLoop]);
-				if ( UsingNewInventorySystem() )
+				if ( UsingNewInventorySystem() ) {
 					if ( bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists() )
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12684,6 +12684,7 @@ INT16 GetWornCamo( SOLDIERTYPE * pSoldier )
 						if ( fLegPenalty > 0 )
 							ttl -= (INT16)( ( 1.0 - gItemSettings.fCamoLBEoverPantsModifier ) * Item[ pSoldier->inv[bLoop].usItem ].camobonus * fLegPenalty / 2 );
 					}
+				}
 			}
 		}
 
@@ -12727,7 +12728,7 @@ INT16 GetWornUrbanCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists())
 			{
 				ttl += GetUrbanCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem())
+				if (UsingNewInventorySystem()) {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12743,6 +12744,7 @@ INT16 GetWornUrbanCamo( SOLDIERTYPE * pSoldier )
 						if (fLegPenalty > 0)
 							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].urbanCamobonus * fLegPenalty / 2);
 					}
+				}
 			}
 		}
 
@@ -12786,7 +12788,7 @@ INT16 GetWornDesertCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists() == true)
 			{
 				ttl += GetDesertCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem())
+				if (UsingNewInventorySystem()) {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12802,6 +12804,7 @@ INT16 GetWornDesertCamo( SOLDIERTYPE * pSoldier )
 						if (fLegPenalty > 0)
 							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].desertCamobonus * fLegPenalty / 2);
 					}
+				}
 			}
 		}
 
@@ -12844,7 +12847,7 @@ INT16 GetWornSnowCamo( SOLDIERTYPE * pSoldier )
 			if (pSoldier->inv[bLoop].exists() == true)
 			{
 				ttl += GetSnowCamoBonus(&pSoldier->inv[bLoop]);
-				if (UsingNewInventorySystem())
+				if (UsingNewInventorySystem()) {
 					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
@@ -12860,6 +12863,7 @@ INT16 GetWornSnowCamo( SOLDIERTYPE * pSoldier )
 						if (fLegPenalty > 0)
 							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].snowCamobonus * fLegPenalty / 2);
 					}
+				}
 			}
 		}
 

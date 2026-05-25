@@ -9148,10 +9148,14 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 	}
 
 	if ( gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT )
-	if ( GetSpeedUpFactor( ) )
-		pSoldier->sAniDelay = (INT16)((FLOAT)pSoldier->sAniDelay * GetSpeedUpFactor( ));
-	else
-		pSoldier->sAniDelay = 0;
+	{
+		// braces make the binding explicit: the else belongs to the inner
+		// 'if ( GetSpeedUpFactor() )', not the outer combat check.
+		if ( GetSpeedUpFactor( ) )
+			pSoldier->sAniDelay = (INT16)((FLOAT)pSoldier->sAniDelay * GetSpeedUpFactor( ));
+		else
+			pSoldier->sAniDelay = 0;
+	}
 }
 
 

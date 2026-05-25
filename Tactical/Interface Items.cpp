@@ -6593,16 +6593,22 @@ INT8 DetermineShowBox( )
 		return 0;
 
 	if(UsingEDBSystem() <= 0)
+	{
 		if (guiCurrentItemDescriptionScreen == MAP_SCREEN)
+		{
 			if (UseNASDesc( gpItemDescObject) )
 				return 2;
 			else
 				return 1;
+		}
 		else
+		{
 			if (UseNASDesc( gpItemDescObject) )
 				return 1;
 			else
 				return 0;
+		}
+	}
 
 	if(UsingNewInventorySystem() == false)	//OIV
 	{
@@ -7010,10 +7016,12 @@ void RenderItemDescriptionBox( )
 			// Exchange LBE images to conserve space in tactical, as appropriate for the UDB/ODB system used.
 			INT8 showLBEImage = showLBE;
 			if (guiCurrentItemDescriptionScreen != MAP_SCREEN)
+			{
 				if (UsingEDBSystem() > 0)
 					showLBEImage += 4;
 				else
 					showLBEImage += 8;
+			}
 
 			// Draw LBE background image
 //			BltVideoObjectFromIndex( guiSAVEBUFFER, guiItemInfoLBEBackground, showLBEImage, gItemDescLBEBackground[showLBE].sLeft, gItemDescLBEBackground[showLBE].sTop, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -13193,10 +13201,12 @@ void ItemDescTabButtonCallback( GUI_BUTTON *btn, INT32 reason )
 	// silversurfer: We clicked on the general tab a second time. Make it toggle between first and second page.
 	// This is only used for weapons at the moment because there was no space for the secondary attributes.
 	if ( gubDescBoxPage == 1 && btn->UserData[0] == 1 && gfLeftButtonState )
+	{
 		if ( gubDescGenPage == 0 )
 			gubDescGenPage = 1;
 		else
 			gubDescGenPage = 0;
+	}
 
 	gubDescBoxPage = btn->UserData[0];
 	HandleItemDescTabButton( );
