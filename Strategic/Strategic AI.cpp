@@ -4132,6 +4132,7 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 		//when we finally go down there, otherwise she will end up in the wrong spot, possibly inside
 		//the walls.
 		if( !gubFact[ FACT_QUEEN_DEAD ] && gMercProfiles[ QUEEN ].bSectorZ == 1 )
+		{
 		if( gbWorldSectorZ != 1 || gWorldSectorX != 16 || gWorldSectorY != 3 )
 		{ //We aren't in the basement sector
 			gMercProfiles[ QUEEN ].fUseProfileInsertionInfo = FALSE;
@@ -4147,6 +4148,7 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 					break;
 				}
 			}
+		}
 		}
 	}
 	if( ubSAIVersion < 25 )
