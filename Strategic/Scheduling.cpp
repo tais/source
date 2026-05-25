@@ -383,14 +383,34 @@ BOOLEAN LoadSchedulesFromSave( HWFILE hFile )
 	gubScheduleID = 1;
 	while( ubRealNum )
 	{
-		uiNumBytesToRead = sizeof( SCHEDULENODE );
-		FileRead( hFile, &temp, uiNumBytesToRead, &uiNumBytesRead );
+		// Read through the on-disk mirror, symmetric with SCHEDULENODE::Save
+		// (which SaveSchedules uses, defaulting to the v8.0 MAPDISK layout). A
+		// raw `FileRead(&temp, sizeof(SCHEDULENODE))` read the in-memory struct
+		// whose leading `next` is an 8-byte pointer on 64-bit, so it consumed
+		// 8 bytes too many per schedule -- shifting the rest of the save stream
+		// and failing the load a few sections later. (The map save/load and the
+		// savegame Save were migrated to MAPDISK_SCHEDULENODE; this loader was
+		// missed.)
+		MAPDISK_SCHEDULENODE disk;
+		uiNumBytesToRead = sizeof( MAPDISK_SCHEDULENODE );
+		FileRead( hFile, &disk, uiNumBytesToRead, &uiNumBytesRead );
 		if( uiNumBytesRead != uiNumBytesToRead )
 		{
 			FileClose( hFile );
 			return( FALSE);
 		}
-		//LOADDATA( &temp, *hBuffer, sizeof( SCHEDULENODE ) );
+		memset( &temp, 0, sizeof( temp ) );
+		temp.next = NULL;
+		for( int i = 0; i < MAX_SCHEDULE_ACTIONS; ++i )
+		{
+			temp.usTime[i]   = disk.usTime[i];
+			temp.usData1[i]  = disk.usData1[i];
+			temp.usData2[i]  = disk.usData2[i];
+			temp.ubAction[i] = disk.ubAction[i];
+		}
+		temp.ubScheduleID = disk.ubScheduleID;
+		temp.ubSoldierID  = disk.ubSoldierID;
+		temp.usFlags      = disk.usFlags;
 
 		if( gpScheduleList )
 		{
