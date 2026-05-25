@@ -283,7 +283,12 @@ void DebugAI( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction )
 
 	DebugMsg(TOPIC_DECISIONS, DBG_LEVEL_3, szOutput);
 
-	if ((DebugFile = fopen("Logs\\AI_Decisions.txt", "a+t")) != NULL)
+	// Use a forward slash, not a backslash: AI logging is opt-in by the
+	// presence of a "Logs" folder -- if it doesn't exist the fopen fails and
+	// gfLogsEnabled is cleared below. A backslash isn't a path separator on
+	// macOS/Linux, so "Logs\\..." created a literal-named file in the cwd
+	// instead of failing, defeating the auto-disable and spamming the game dir.
+	if ((DebugFile = fopen("Logs/AI_Decisions.txt", "a+t")) != NULL)
 	{
 		if (bMsgType == AI_MSG_START)
 		{
@@ -301,7 +306,7 @@ void DebugAI( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction )
 	}
 
 	// also log to individual file for selected soldier
-	sprintf(buf, "Logs\\AI_Decisions [%d].txt", pSoldier->ubID.i);
+	sprintf(buf, "Logs/AI_Decisions [%d].txt", pSoldier->ubID.i);
 	if ((DebugFile = fopen(buf, "a+t")) != NULL)
 	{
 		if (bMsgType == AI_MSG_START)
@@ -335,7 +340,7 @@ void DebugQuestInfo(STR szOutput)
 
 	FILE*	DebugFile;
 
-	DebugFile = fopen("Logs\\QuestInfo.txt", "a+t");
+	DebugFile = fopen("Logs/QuestInfo.txt", "a+t");
 	if (DebugFile != NULL)
 	{
 		// first write game clock and date/time
@@ -385,14 +390,14 @@ BOOLEAN InitAI( void )
 #endif
 
 	// sevenfm: Clear the AI debug txt file to prevent it from getting huge
-	remove("Logs\\AI_Decisions.txt");
-	//remove("Logs\\QuestInfo.txt");
+	remove("Logs/AI_Decisions.txt");
+	//remove("Logs/QuestInfo.txt");
 
 	// remove all individual files
 	CHAR8	buf[1024];
 	for (UINT16 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
 	{
-		sprintf(buf, "Logs\\AI_Decisions [%d].txt", cnt);
+		sprintf(buf, "Logs/AI_Decisions [%d].txt", cnt);
 		remove(buf);
 	}
 
